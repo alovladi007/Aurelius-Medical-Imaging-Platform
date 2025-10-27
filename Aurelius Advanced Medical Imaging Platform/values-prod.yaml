@@ -1,0 +1,454 @@
+# Aurelius - Production Values Override
+# This file overrides default values for production deployment
+#
+# Usage:
+#   helm install aurelius ./aurelius -f values.yaml -f values-prod.yaml
+
+global:
+  domain: "aurelius.io"
+  
+  security:
+    oidc:
+      enabled: true
+      issuerUrl: "https://auth.aurelius.io/realms/aurelius"
+      clientId: "aurelius-platform"
+    
+    tls:
+      enabled: true
+      certManager: true
+      issuer: "letsencrypt-prod"
+    
+    networkPolicy:
+      enabled: true
+
+# ============================================================================
+# Production Resource Allocations
+# ============================================================================
+
+gateway:
+  replicaCount: 5
+  
+  resources:
+    limits:
+      cpu: 4000m
+      memory: 8Gi
+    requests:
+      cpu: 2000m
+      memory: 4Gi
+  
+  autoscaling:
+    enabled: true
+    minReplicas: 5
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 60
+    targetMemoryUtilizationPercentage: 70
+
+dicomService:
+  replicaCount: 4
+  
+  resources:
+    limits:
+      cpu: 4000m
+      memory: 16Gi
+    requests:
+      cpu: 2000m
+      memory: 8Gi
+  
+  autoscaling:
+    minReplicas: 4
+    maxReplicas: 15
+  
+  persistence:
+    size: 500Gi
+    storageClass: "fast-ssd"
+
+mlService:
+  replicaCount: 4
+  
+  resources:
+    limits:
+      cpu: 8000m
+      memory: 32Gi
+      nvidia.com/gpu: 1
+    requests:
+      cpu: 4000m
+      memory: 16Gi
+      nvidia.com/gpu: 1
+  
+  autoscaling:
+    minReplicas: 4
+    maxReplicas: 20
+  
+  persistence:
+    size: 1Ti
+    storageClass: "fast-ssd"
+
+renderService:
+  replicaCount: 3
+  
+  autoscaling:
+    minReplicas: 3
+    maxReplicas: 12
+
+celeryWorker:
+  replicaCount: 5
+  
+  resources:
+    limits:
+      cpu: 4000m
+      memory: 8Gi
+    requests:
+      cpu: 2000m
+      memory: 4Gi
+  
+  autoscaling:
+    minReplicas: 5
+    maxReplicas: 30
+
+webUI:
+  replicaCount: 5
+  
+  autoscaling:
+    minReplicas: 5
+    maxReplicas: 15
+
+# ============================================================================
+# Production Database Configuration
+# ============================================================================
+
+postgresql:
+  enabled: true
+  
+  auth:
+    # Use actual secure passwords from secrets management
+    existingSecret: "postgresql-credentials"
+  
+  primary:
+    persistence:
+      size: 500Gi
+      storageClass: "high-performance-ssd"
+    
+    resources:
+      limits:
+        cpu: 8000m
+        memory: 16Gi
+      requests:
+        cpu: 4000m
+        memory: 8Gi
+    
+    # Production PostgreSQL configuration
+    extendedConfiguration: |
+      max_connections = 500
+      shared_buffers = 4GB
+      effective_cache_size = 12GB
+      maintenance_work_mem = 1GB
+      checkpoint_completion_target = 0.9
+      wal_buffers = 32MB
+      default_statistics_target = 200
+      random_page_cost = 1.1
+      effective_io_concurrency = 300
+      work_mem = 8388kB
+      min_wal_size = 2GB
+      max_wal_size = 8GB
+      max_worker_processes = 8
+      max_parallel_workers_per_gather = 4
+      max_parallel_workers = 8
+      max_parallel_maintenance_workers = 4
+  
+  # Enable replication for high availability
+  architecture: replication
+  replication:
+    enabled: true
+    numSynchronousReplicas: 1
+  
+  readReplicas:
+    replicaCount: 2
+    persistence:
+      size: 500Gi
+    resources:
+      limits:
+        cpu: 4000m
+        memory: 8Gi
+      requests:
+        cpu: 2000m
+        memory: 4Gi
+
+# ============================================================================
+# Production Redis Configuration
+# ============================================================================
+
+redis:
+  enabled: true
+  
+  architecture: replication
+  
+  auth:
+    existingSecret: "redis-credentials"
+  
+  master:
+    persistence:
+      size: 100Gi
+      storageClass: "fast-ssd"
+    
+    resources:
+      limits:
+        cpu: 4000m
+        memory: 8Gi
+      requests:
+        cpu: 2000m
+        memory: 4Gi
+  
+  replica:
+    replicaCount: 3
+    persistence:
+      size: 100Gi
+    resources:
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+      requests:
+        cpu: 1000m
+        memory: 2Gi
+
+# ============================================================================
+# Production MinIO Configuration
+# ============================================================================
+
+minio:
+  enabled: true
+  
+  mode: distributed
+  
+  auth:
+    existingSecret: "minio-credentials"
+  
+  statefulset:
+    replicaCount: 8  # For distributed mode (min 4)
+  
+  persistence:
+    size: 2Ti
+    storageClass: "standard-storage"
+  
+  resources:
+    limits:
+      cpu: 4000m
+      memory: 8Gi
+    requests:
+      cpu: 2000m
+      memory: 4Gi
+
+# ============================================================================
+# Production Monitoring
+# ============================================================================
+
+prometheus:
+  enabled: true
+  
+  server:
+    persistentVolume:
+      size: 500Gi
+      storageClass: "standard-storage"
+    
+    resources:
+      limits:
+        cpu: 4000m
+        memory: 8Gi
+      requests:
+        cpu: 2000m
+        memory: 4Gi
+    
+    retention: 90d
+    
+    # High availability
+    replicaCount: 2
+  
+  alertmanager:
+    enabled: true
+    replicaCount: 2
+    persistentVolume:
+      size: 20Gi
+
+grafana:
+  enabled: true
+  
+  replicas: 2
+  
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+    requests:
+      cpu: 1000m
+      memory: 1Gi
+  
+  persistence:
+    size: 50Gi
+  
+  # Production admin credentials from secret
+  admin:
+    existingSecret: "grafana-credentials"
+
+# ============================================================================
+# Production Ingress Configuration
+# ============================================================================
+
+ingress:
+  enabled: true
+  className: nginx
+  
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/proxy-body-size: "2048m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "900"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "900"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    # DDoS protection
+    nginx.ingress.kubernetes.io/limit-rps: "100"
+    nginx.ingress.kubernetes.io/limit-connections: "50"
+    # Security headers
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Frame-Options: DENY";
+      more_set_headers "X-Content-Type-Options: nosniff";
+      more_set_headers "X-XSS-Protection: 1; mode=block";
+      more_set_headers "Strict-Transport-Security: max-age=31536000; includeSubDomains; preload";
+  
+  hosts:
+    - host: api.aurelius.io
+      paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: gateway
+              port: 8000
+    
+    - host: app.aurelius.io
+      paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: web-ui
+              port: 3000
+    
+    - host: dicom.aurelius.io
+      paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: dicom-service
+              port: 8080
+  
+  tls:
+    - secretName: aurelius-tls
+      hosts:
+        - api.aurelius.io
+        - app.aurelius.io
+        - dicom.aurelius.io
+
+# ============================================================================
+# Production Secrets Management
+# ============================================================================
+
+# IMPORTANT: Do NOT use the basic secrets.create in production!
+# Instead, use External Secrets Operator or similar
+
+secrets:
+  create: false  # Disable basic secret creation
+  
+  # External Secrets Operator configuration
+  externalSecrets:
+    enabled: true
+    backend: "aws-secretsmanager"  # or vault, gcpsm, azurekv
+    region: "us-east-1"
+    secretStore: "aws-parameter-store"
+
+# ============================================================================
+# Production Backup Configuration
+# ============================================================================
+
+backup:
+  enabled: true
+  
+  velero:
+    enabled: true
+    schedule: "0 2 * * *"  # Daily at 2 AM
+    retention: 90d  # 90 days retention for production
+    
+    # Backup to multiple regions
+    storageLocations:
+      - name: primary
+        bucket: aurelius-backups-primary
+        region: us-east-1
+      - name: disaster-recovery
+        bucket: aurelius-backups-dr
+        region: us-west-2
+  
+  postgresql:
+    enabled: true
+    schedule: "0 */6 * * *"  # Every 6 hours
+    retention: 30d
+    destination: "s3://aurelius-backups-primary/postgresql"
+
+# ============================================================================
+# Production Pod Disruption Budgets
+# ============================================================================
+
+podDisruptionBudget:
+  enabled: true
+  
+  gateway:
+    minAvailable: 3
+  
+  mlService:
+    minAvailable: 2
+  
+  dicomService:
+    minAvailable: 2
+
+# ============================================================================
+# Service Account with IRSA (AWS)
+# ============================================================================
+
+serviceAccount:
+  create: true
+  annotations:
+    # AWS IAM Role for Service Account
+    eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/aurelius-prod-service-role"
+  name: "aurelius"
+
+# ============================================================================
+# Additional Production Settings
+# ============================================================================
+
+# Enable pod priority
+podPriorityClassName: "high-priority"
+
+# Spread pods across zones
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: DoNotSchedule
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/instance: aurelius
+
+# Node affinity for production nodes
+nodeAffinity:
+  requiredDuringSchedulingIgnoredDuringExecution:
+    nodeSelectorTerms:
+    - matchExpressions:
+      - key: environment
+        operator: In
+        values:
+        - production
+
+# Tolerations for production taints
+tolerations:
+  - key: "production"
+    operator: "Equal"
+    value: "true"
+    effect: "NoSchedule"

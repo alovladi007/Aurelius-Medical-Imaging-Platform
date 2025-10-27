@@ -1,0 +1,120 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'aurelius-dev'
+    environment: 'development'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: []
+
+# Load rules once and periodically evaluate them
+rule_files:
+  - "/etc/prometheus/alerts/*.yaml"
+
+# Scrape configurations
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # API Gateway
+  - job_name: 'gateway'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['gateway:8000']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'gateway'
+
+  # Imaging Service
+  - job_name: 'imaging-svc'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['imaging-svc:8001']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'imaging-svc'
+
+  # ML Service
+  - job_name: 'ml-svc'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['ml-svc:8002']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'ml-svc'
+
+  # Search Service
+  - job_name: 'search-svc'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['search-svc:8004']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'search-svc'
+
+  # OpenSearch
+  - job_name: 'opensearch'
+    metrics_path: '/_prometheus/metrics'
+    static_configs:
+      - targets: ['opensearch:9200']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'opensearch'
+
+  # PostgreSQL
+  - job_name: 'postgres'
+    static_configs:
+      - targets: ['postgres:5432']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'postgres'
+
+  # Redis
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'redis'
+
+  # Keycloak
+  - job_name: 'keycloak'
+    metrics_path: '/metrics'
+    static_configs:
+      - targets: ['keycloak:8080']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'keycloak'
+
+  # Orthanc
+  - job_name: 'orthanc'
+    metrics_path: '/statistics'
+    static_configs:
+      - targets: ['orthanc:8042']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'orthanc'
+
+  # MLflow
+  - job_name: 'mlflow'
+    static_configs:
+      - targets: ['mlflow:5000']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'mlflow'

@@ -1,0 +1,86 @@
+apiVersion: v2
+name: aurelius
+description: A Helm chart for Aurelius Medical Imaging Platform
+type: application
+version: 1.0.0
+appVersion: "1.0.0"
+keywords:
+  - medical-imaging
+  - dicom
+  - ai
+  - healthcare
+  - radiology
+maintainers:
+  - name: Aurelius Team
+    email: devops@aurelius.io
+home: https://github.com/aurelius/aurelius-medimaging
+sources:
+  - https://github.com/aurelius/aurelius-medimaging
+icon: https://aurelius.io/icon.png
+
+dependencies:
+  # PostgreSQL for metadata and application data
+  - name: postgresql
+    version: 13.2.24
+    repository: https://charts.bitnami.com/bitnami
+    condition: postgresql.enabled
+    tags:
+      - database
+  
+  # Redis for caching and job queues
+  - name: redis
+    version: 18.4.0
+    repository: https://charts.bitnami.com/bitnami
+    condition: redis.enabled
+    tags:
+      - cache
+  
+  # MinIO for object storage (S3-compatible)
+  - name: minio
+    version: 12.10.0
+    repository: https://charts.bitnami.com/bitnami
+    condition: minio.enabled
+    tags:
+      - storage
+  
+  # Keycloak for authentication
+  - name: keycloak
+    version: 17.3.1
+    repository: https://charts.bitnami.com/bitnami
+    condition: keycloak.enabled
+    tags:
+      - auth
+  
+  # Prometheus for metrics
+  - name: prometheus
+    version: 25.8.0
+    repository: https://prometheus-community.github.io/helm-charts
+    condition: prometheus.enabled
+    tags:
+      - monitoring
+  
+  # Grafana for dashboards
+  - name: grafana
+    version: 7.0.19
+    repository: https://grafana.github.io/helm-charts
+    condition: grafana.enabled
+    tags:
+      - monitoring
+  
+  # Jaeger for distributed tracing
+  - name: jaeger
+    version: 0.71.14
+    repository: https://jaegertracing.github.io/helm-charts
+    condition: jaeger.enabled
+    tags:
+      - tracing
+
+annotations:
+  # Annotations for Artifact Hub
+  artifacthub.io/changes: |
+    - kind: added
+      description: Initial release with full platform
+  artifacthub.io/containsSecurityUpdates: "false"
+  artifacthub.io/license: Apache-2.0
+  artifacthub.io/operator: "false"
+  artifacthub.io/prerelease: "false"

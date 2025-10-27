@@ -1,0 +1,912 @@
+# Aurelius Medical Imaging Platform - Helm Values
+# Production-ready configuration with security by default
+
+global:
+  # Global image settings
+  imageRegistry: docker.io
+  imagePullSecrets: []
+  storageClass: "standard"
+  
+  # Domain configuration
+  domain: "aurelius.io"
+  
+  # Security settings
+  security:
+    # Enable OIDC authentication for all services
+    oidc:
+      enabled: true
+      issuerUrl: "https://auth.aurelius.io/realms/aurelius"
+      clientId: "aurelius-platform"
+    
+    # TLS configuration
+    tls:
+      enabled: true
+      # Use cert-manager for automatic certificate provisioning
+      certManager: true
+      issuer: "letsencrypt-prod"
+    
+    # Network policies
+    networkPolicy:
+      enabled: true
+      policyTypes:
+        - Ingress
+        - Egress
+
+# ============================================================================
+# API Gateway Service
+# ============================================================================
+gateway:
+  enabled: true
+  
+  replicaCount: 3
+  
+  image:
+    repository: aurelius/gateway
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  
+  # Resource limits (production-sized)
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+  
+  # Autoscaling
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+  
+  # Health checks
+  livenessProbe:
+    httpGet:
+      path: /health/live
+      port: 8000
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+  
+  readinessProbe:
+    httpGet:
+      path: /health/ready
+      port: 8000
+    initialDelaySeconds: 20
+    periodSeconds: 5
+    timeoutSeconds: 3
+    failureThreshold: 2
+  
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 8000
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "8000"
+      prometheus.io/path: "/metrics"
+  
+  # Environment variables
+  env:
+    - name: ENVIRONMENT
+      value: "production"
+    - name: LOG_LEVEL
+      value: "INFO"
+    - name: WORKERS
+      value: "4"
+    - name: DATABASE_URL
+      valueFrom:
+        secretKeyRef:
+          name: aurelius-secrets
+          key: database-url
+    - name: REDIS_URL
+      valueFrom:
+        secretKeyRef:
+          name: aurelius-secrets
+          key: redis-url
+    - name: KEYCLOAK_URL
+      value: "https://auth.aurelius.io"
+    - name: KEYCLOAK_REALM
+      value: "aurelius"
+    - name: KEYCLOAK_CLIENT_ID
+      value: "aurelius-gateway"
+    - name: KEYCLOAK_CLIENT_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: aurelius-secrets
+          key: keycloak-client-secret
+    - name: S3_ENDPOINT
+      value: "minio:9000"
+    - name: S3_ACCESS_KEY
+      valueFrom:
+        secretKeyRef:
+          name: aurelius-secrets
+          key: s3-access-key
+    - name: S3_SECRET_KEY
+      valueFrom:
+        secretKeyRef:
+          name: aurelius-secrets
+          key: s3-secret-key
+    - name: STRIPE_SECRET_KEY
+      valueFrom:
+        secretKeyRef:
+          name: aurelius-secrets
+          key: stripe-secret-key
+    - name: JAEGER_AGENT_HOST
+      value: "jaeger-agent"
+    - name: OTEL_EXPORTER_OTLP_ENDPOINT
+      value: "http://jaeger-collector:4317"
+
+# ============================================================================
+# DICOM Service
+# ============================================================================
+dicomService:
+  enabled: true
+  
+  replicaCount: 2
+  
+  image:
+    repository: aurelius/dicom-service
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 8Gi
+    requests:
+      cpu: 1000m
+      memory: 4Gi
+  
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 75
+  
+  # DICOM specific ports
+  service:
+    type: LoadBalancer
+    ports:
+      - name: grpc
+        port: 50051
+        targetPort: 50051
+      - name: dicom-cstore
+        port: 11112
+        targetPort: 11112
+      - name: dicom-wado
+        port: 8080
+        targetPort: 8080
+    annotations:
+      service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+  
+  # Persistent volume for DICOM cache
+  persistence:
+    enabled: true
+    storageClass: "fast-ssd"
+    accessMode: ReadWriteOnce
+    size: 100Gi
+    mountPath: /app/cache
+  
+  livenessProbe:
+    grpc:
+      port: 50051
+    initialDelaySeconds: 30
+    periodSeconds: 10
+  
+  readinessProbe:
+    grpc:
+      port: 50051
+    initialDelaySeconds: 20
+    periodSeconds: 5
+
+# ============================================================================
+# ML Service (GPU-enabled)
+# ============================================================================
+mlService:
+  enabled: true
+  
+  replicaCount: 2
+  
+  image:
+    repository: aurelius/ml-service
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  
+  # GPU resources
+  resources:
+    limits:
+      cpu: 4000m
+      memory: 16Gi
+      nvidia.com/gpu: 1
+    requests:
+      cpu: 2000m
+      memory: 8Gi
+      nvidia.com/gpu: 1
+  
+  # Node selector for GPU nodes
+  nodeSelector:
+    accelerator: nvidia-tesla-t4
+  
+  # Tolerations for GPU nodes
+  tolerations:
+    - key: nvidia.com/gpu
+      operator: Exists
+      effect: NoSchedule
+  
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+  
+  service:
+    type: ClusterIP
+    ports:
+      - name: grpc
+        port: 50052
+        targetPort: 50052
+      - name: metrics
+        port: 8001
+        targetPort: 8001
+  
+  # Model storage
+  persistence:
+    enabled: true
+    storageClass: "fast-ssd"
+    accessMode: ReadWriteMany
+    size: 200Gi
+    mountPath: /app/models
+  
+  livenessProbe:
+    grpc:
+      port: 50052
+    initialDelaySeconds: 60
+    periodSeconds: 15
+  
+  readinessProbe:
+    grpc:
+      port: 50052
+    initialDelaySeconds: 30
+    periodSeconds: 10
+
+# ============================================================================
+# 3D Rendering Service (GPU-enabled)
+# ============================================================================
+renderService:
+  enabled: true
+  
+  replicaCount: 2
+  
+  image:
+    repository: aurelius/render-service
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 8Gi
+      nvidia.com/gpu: 1
+    requests:
+      cpu: 1000m
+      memory: 4Gi
+      nvidia.com/gpu: 1
+  
+  nodeSelector:
+    accelerator: nvidia-tesla-t4
+  
+  tolerations:
+    - key: nvidia.com/gpu
+      operator: Exists
+      effect: NoSchedule
+  
+  service:
+    type: ClusterIP
+    ports:
+      - name: grpc
+        port: 50053
+        targetPort: 50053
+  
+  persistence:
+    enabled: true
+    size: 50Gi
+    mountPath: /app/cache
+
+# ============================================================================
+# Annotation Service
+# ============================================================================
+annotationService:
+  enabled: true
+  
+  replicaCount: 2
+  
+  image:
+    repository: aurelius/annotation-service
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+  
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+  
+  service:
+    type: ClusterIP
+    port: 50054
+
+# ============================================================================
+# Worklist Service
+# ============================================================================
+worklistService:
+  enabled: true
+  
+  replicaCount: 2
+  
+  image:
+    repository: aurelius/worklist-service
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 1Gi
+  
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+  
+  service:
+    type: ClusterIP
+    port: 50055
+
+# ============================================================================
+# Celery Workers
+# ============================================================================
+celeryWorker:
+  enabled: true
+  
+  replicaCount: 3
+  
+  image:
+    repository: aurelius/gateway
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+  
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 20
+    targetCPUUtilizationPercentage: 75
+  
+  # Celery queues
+  queues: "default,dicom,ml,reports"
+  
+  env:
+    - name: CELERY_BROKER_URL
+      valueFrom:
+        secretKeyRef:
+          name: aurelius-secrets
+          key: redis-url
+
+# ============================================================================
+# Web UI
+# ============================================================================
+webUI:
+  enabled: true
+  
+  replicaCount: 3
+  
+  image:
+    repository: aurelius/web-ui
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 250m
+      memory: 256Mi
+  
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+  
+  service:
+    type: ClusterIP
+    port: 3000
+  
+  livenessProbe:
+    httpGet:
+      path: /
+      port: 3000
+    initialDelaySeconds: 30
+    periodSeconds: 10
+  
+  readinessProbe:
+    httpGet:
+      path: /
+      port: 3000
+    initialDelaySeconds: 10
+    periodSeconds: 5
+
+# ============================================================================
+# PostgreSQL (Bitnami chart)
+# ============================================================================
+postgresql:
+  enabled: true
+  
+  auth:
+    postgresPassword: "CHANGE_ME_IN_PRODUCTION"
+    username: "aurelius"
+    password: "CHANGE_ME_IN_PRODUCTION"
+    database: "aurelius"
+  
+  primary:
+    persistence:
+      enabled: true
+      storageClass: "standard"
+      size: 100Gi
+    
+    resources:
+      limits:
+        cpu: 4000m
+        memory: 8Gi
+      requests:
+        cpu: 2000m
+        memory: 4Gi
+    
+    # PostgreSQL configuration
+    extendedConfiguration: |
+      max_connections = 200
+      shared_buffers = 2GB
+      effective_cache_size = 6GB
+      maintenance_work_mem = 512MB
+      checkpoint_completion_target = 0.9
+      wal_buffers = 16MB
+      default_statistics_target = 100
+      random_page_cost = 1.1
+      effective_io_concurrency = 200
+      work_mem = 10485kB
+      min_wal_size = 1GB
+      max_wal_size = 4GB
+  
+  # Metrics
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+
+# ============================================================================
+# Redis (Bitnami chart)
+# ============================================================================
+redis:
+  enabled: true
+  
+  architecture: replication
+  
+  auth:
+    enabled: true
+    password: "CHANGE_ME_IN_PRODUCTION"
+  
+  master:
+    persistence:
+      enabled: true
+      storageClass: "fast-ssd"
+      size: 20Gi
+    
+    resources:
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+      requests:
+        cpu: 1000m
+        memory: 2Gi
+  
+  replica:
+    replicaCount: 2
+    
+    persistence:
+      enabled: true
+      size: 20Gi
+    
+    resources:
+      limits:
+        cpu: 1000m
+        memory: 2Gi
+      requests:
+        cpu: 500m
+        memory: 1Gi
+  
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+
+# ============================================================================
+# MinIO (Bitnami chart)
+# ============================================================================
+minio:
+  enabled: true
+  
+  mode: distributed
+  
+  auth:
+    rootUser: "admin"
+    rootPassword: "CHANGE_ME_IN_PRODUCTION"
+  
+  # Distributed mode with 4 nodes
+  statefulset:
+    replicaCount: 4
+  
+  persistence:
+    enabled: true
+    storageClass: "standard"
+    size: 500Gi
+  
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 4Gi
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+  
+  # Default buckets
+  defaultBuckets: "dicom-studies,ml-models,exports,backups"
+  
+  metrics:
+    serviceMonitor:
+      enabled: true
+
+# ============================================================================
+# Keycloak (Bitnami chart)
+# ============================================================================
+keycloak:
+  enabled: true
+  
+  auth:
+    adminUser: admin
+    adminPassword: "CHANGE_ME_IN_PRODUCTION"
+  
+  replicaCount: 2
+  
+  postgresql:
+    enabled: true
+    auth:
+      postgresPassword: "CHANGE_ME_IN_PRODUCTION"
+      password: "CHANGE_ME_IN_PRODUCTION"
+  
+  resources:
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+    requests:
+      cpu: 1000m
+      memory: 1Gi
+  
+  service:
+    type: ClusterIP
+  
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hostname: auth.aurelius.io
+    tls: true
+
+# ============================================================================
+# Prometheus (Community chart)
+# ============================================================================
+prometheus:
+  enabled: true
+  
+  server:
+    persistentVolume:
+      enabled: true
+      size: 100Gi
+    
+    resources:
+      limits:
+        cpu: 2000m
+        memory: 4Gi
+      requests:
+        cpu: 1000m
+        memory: 2Gi
+    
+    retention: 30d
+  
+  alertmanager:
+    enabled: true
+    persistentVolume:
+      enabled: true
+      size: 10Gi
+
+# ============================================================================
+# Grafana (Grafana chart)
+# ============================================================================
+grafana:
+  enabled: true
+  
+  adminPassword: "CHANGE_ME_IN_PRODUCTION"
+  
+  persistence:
+    enabled: true
+    size: 10Gi
+  
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+  
+  # Pre-configured data sources
+  datasources:
+    datasources.yaml:
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          url: http://prometheus-server
+          isDefault: true
+        - name: Jaeger
+          type: jaeger
+          url: http://jaeger-query:16686
+  
+  # Pre-installed dashboards
+  dashboardProviders:
+    dashboardproviders.yaml:
+      apiVersion: 1
+      providers:
+        - name: 'default'
+          orgId: 1
+          folder: 'Aurelius'
+          type: file
+          disableDeletion: false
+          editable: true
+          options:
+            path: /var/lib/grafana/dashboards
+  
+  ingress:
+    enabled: true
+    ingressClassName: nginx
+    hosts:
+      - grafana.aurelius.io
+    tls:
+      - secretName: grafana-tls
+        hosts:
+          - grafana.aurelius.io
+
+# ============================================================================
+# Jaeger (Jaeger chart)
+# ============================================================================
+jaeger:
+  enabled: true
+  
+  storage:
+    type: elasticsearch
+  
+  query:
+    ingress:
+      enabled: true
+      hosts:
+        - jaeger.aurelius.io
+      tls:
+        - secretName: jaeger-tls
+          hosts:
+            - jaeger.aurelius.io
+
+# ============================================================================
+# Ingress
+# ============================================================================
+ingress:
+  enabled: true
+  className: nginx
+  
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/proxy-body-size: "1024m"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "600"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+  
+  hosts:
+    - host: api.aurelius.io
+      paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: gateway
+              port: 8000
+    
+    - host: app.aurelius.io
+      paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: web-ui
+              port: 3000
+  
+  tls:
+    - secretName: aurelius-tls
+      hosts:
+        - api.aurelius.io
+        - app.aurelius.io
+
+# ============================================================================
+# Network Policies
+# ============================================================================
+networkPolicy:
+  enabled: true
+  
+  # Default deny all ingress
+  defaultDeny: true
+  
+  # Egress rules
+  egressRules:
+    # Allow DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+    
+    # Allow external HTTPS (for Keycloak, Stripe, etc.)
+    - to:
+        - namespaceSelector: {}
+      ports:
+        - protocol: TCP
+          port: 443
+
+# ============================================================================
+# Service Account
+# ============================================================================
+serviceAccount:
+  create: true
+  annotations:
+    # AWS IAM role for service account (IRSA)
+    eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/aurelius-service-role"
+  name: "aurelius"
+
+# ============================================================================
+# Pod Security Policy
+# ============================================================================
+podSecurityPolicy:
+  enabled: true
+  
+  spec:
+    privileged: false
+    allowPrivilegeEscalation: false
+    requiredDropCapabilities:
+      - ALL
+    volumes:
+      - 'configMap'
+      - 'emptyDir'
+      - 'projected'
+      - 'secret'
+      - 'downwardAPI'
+      - 'persistentVolumeClaim'
+    hostNetwork: false
+    hostIPC: false
+    hostPID: false
+    runAsUser:
+      rule: 'MustRunAsNonRoot'
+    seLinux:
+      rule: 'RunAsAny'
+    fsGroup:
+      rule: 'RunAsAny'
+
+# ============================================================================
+# Secrets (use external secrets operator in production)
+# ============================================================================
+secrets:
+  # WARNING: These are example secrets. In production:
+  # - Use Sealed Secrets, External Secrets Operator, or Vault
+  # - Never commit actual secrets to git
+  # - Rotate secrets regularly
+  create: true
+  
+  data:
+    database-url: "cG9zdGdyZXNxbCtvbGViYXJnZTovL3VzZXI6cGFzc0Bwb3N0Z3Jlc3FsOjU0MzIvYXVyZWxpdXM="  # base64
+    redis-url: "cmVkaXM6Ly86cGFzc0ByZWRpcy1tYXN0ZXI6NjM3OS8w"  # base64
+    s3-access-key: "YWRtaW4="  # base64: "admin"
+    s3-secret-key: "Q0hBTkdFX01FX0lOX1BST0RVQ1RJT04="  # base64
+    keycloak-client-secret: "Q0hBTkdFX01FX0lOX1BST0RVQ1RJT04="  # base64
+    stripe-secret-key: "c2tfdGVzdF9wbGFjZWhvbGRlcg=="  # base64
+
+# ============================================================================
+# ConfigMap
+# ============================================================================
+configMap:
+  create: true
+  
+  data:
+    # Application configuration
+    APP_NAME: "Aurelius Medical Imaging"
+    ENVIRONMENT: "production"
+    LOG_LEVEL: "INFO"
+    
+    # Feature flags
+    FEATURE_ML_ENABLED: "true"
+    FEATURE_3D_RENDERING_ENABLED: "true"
+    FEATURE_FHIR_ENABLED: "true"
+    FEATURE_MULTI_TENANCY_ENABLED: "true"
+    
+    # Performance tuning
+    WORKER_CONCURRENCY: "4"
+    MAX_UPLOAD_SIZE_MB: "1024"
+    CACHE_TTL_SECONDS: "3600"
+
+# ============================================================================
+# Backup Configuration
+# ============================================================================
+backup:
+  enabled: true
+  
+  # Use Velero for backup/restore
+  velero:
+    enabled: true
+    schedule: "0 2 * * *"  # Daily at 2 AM
+    retention: 30d
+  
+  # Database backups
+  postgresql:
+    enabled: true
+    schedule: "0 3 * * *"
+    retention: 14d
+    destination: "s3://aurelius-backups/postgresql"
+
+# ============================================================================
+# Disaster Recovery
+# ============================================================================
+disasterRecovery:
+  enabled: true
+  
+  # Multi-region replication
+  replication:
+    enabled: false
+    regions:
+      - us-east-1
+      - us-west-2
+  
+  # Backup verification
+  verification:
+    enabled: true
+    schedule: "0 4 * * 0"  # Weekly on Sunday at 4 AM

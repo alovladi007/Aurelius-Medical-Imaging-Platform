@@ -1,0 +1,278 @@
+groups:
+  - name: api_slo_alerts
+    interval: 1m
+    rules:
+      # API Availability SLO: 99.9% uptime
+      - alert: APIAvailabilitySLOBreach
+        expr: |
+          (
+            sum(rate(http_requests_total{job="gateway",status!~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total{job="gateway"}[5m]))
+          ) < 0.999
+        for: 5m
+        labels:
+          severity: critical
+          slo: availability
+          team: platform
+        annotations:
+          summary: "API availability below 99.9% SLO"
+          description: "API availability is {{ $value | humanizePercentage }} (target: 99.9%)"
+          runbook_url: "https://docs.aurelius.io/runbooks/api-availability"
+
+      # API Latency SLO: p95 < 500ms
+      - alert: APILatencySLOBreach
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket{job="gateway"}[5m])) by (le)
+          ) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          slo: latency
+          team: platform
+        annotations:
+          summary: "API p95 latency above 500ms SLO"
+          description: "API p95 latency is {{ $value }}s (target: <0.5s)"
+          runbook_url: "https://docs.aurelius.io/runbooks/api-latency"
+
+      # Error Rate SLO: < 1%
+      - alert: APIErrorRateSLOBreach
+        expr: |
+          (
+            sum(rate(http_requests_total{job="gateway",status=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total{job="gateway"}[5m]))
+          ) > 0.01
+        for: 5m
+        labels:
+          severity: critical
+          slo: error_rate
+          team: platform
+        annotations:
+          summary: "API error rate above 1% SLO"
+          description: "API error rate is {{ $value | humanizePercentage }} (target: <1%)"
+          runbook_url: "https://docs.aurelius.io/runbooks/api-errors"
+
+  - name: ml_inference_alerts
+    interval: 1m
+    rules:
+      # ML Inference SLO: p95 < 2s
+      - alert: MLInferenceLatencySLOBreach
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(ml_inference_duration_seconds_bucket[5m])) by (le)
+          ) > 2.0
+        for: 5m
+        labels:
+          severity: warning
+          slo: ml_latency
+          team: ml
+        annotations:
+          summary: "ML inference p95 latency above 2s SLO"
+          description: "ML inference p95 latency is {{ $value }}s (target: <2s)"
+
+      # GPU Utilization: Alert if consistently low
+      - alert: LowGPUUtilization
+        expr: |
+          avg(nvidia_smi_utilization_gpu_ratio{job="ml-svc"}) < 0.2
+        for: 30m
+        labels:
+          severity: info
+          team: ml
+        annotations:
+          summary: "GPU utilization consistently low"
+          description: "GPU utilization is {{ $value | humanizePercentage }} for 30 minutes. Consider scaling down."
+
+      # GPU Memory: Alert if high
+      - alert: HighGPUMemory
+        expr: |
+          nvidia_smi_memory_used_bytes{job="ml-svc"} / nvidia_smi_memory_total_bytes{job="ml-svc"} > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          team: ml
+        annotations:
+          summary: "GPU memory usage above 90%"
+          description: "GPU {{ $labels.gpu_index }} memory is {{ $value | humanizePercentage }} full"
+
+  - name: job_queue_alerts
+    interval: 1m
+    rules:
+      # Queue Depth: Alert if too high
+      - alert: HighQueueDepth
+        expr: |
+          celery_queue_length > 1000
+        for: 10m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Job queue depth exceeds 1000 tasks"
+          description: "Queue {{ $labels.queue_name }} has {{ $value }} pending tasks"
+
+      # Worker Availability: Alert if no workers
+      - alert: NoActiveWorkers
+        expr: |
+          celery_workers_total == 0
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "No active Celery workers"
+          description: "All Celery workers are offline. Jobs will not be processed."
+
+      # Task Failure Rate: Alert if high
+      - alert: HighTaskFailureRate
+        expr: |
+          (
+            sum(rate(celery_tasks_failed_total[5m])) by (task_name)
+            /
+            sum(rate(celery_tasks_received_total[5m])) by (task_name)
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Task failure rate above 10%"
+          description: "Task {{ $labels.task_name }} failure rate is {{ $value | humanizePercentage }}"
+
+  - name: cost_budget_alerts
+    interval: 5m
+    rules:
+      # Monthly Cost Budget: Alert at 80%, 90%, 100%
+      - alert: MonthlyBudget80Percent
+        expr: |
+          sum(api_calls_cost_usd_total{period="month"} + storage_cost_usd_total{period="month"} + (gpu_hours_total * 2.5)) > 8000
+        labels:
+          severity: info
+          team: finance
+        annotations:
+          summary: "Monthly cost budget at 80%"
+          description: "Current monthly cost: ${{ $value | humanize }}. Budget: $10,000"
+
+      - alert: MonthlyBudget90Percent
+        expr: |
+          sum(api_calls_cost_usd_total{period="month"} + storage_cost_usd_total{period="month"} + (gpu_hours_total * 2.5)) > 9000
+        labels:
+          severity: warning
+          team: finance
+        annotations:
+          summary: "Monthly cost budget at 90%"
+          description: "Current monthly cost: ${{ $value | humanize }}. Budget: $10,000"
+
+      - alert: MonthlyBudgetExceeded
+        expr: |
+          sum(api_calls_cost_usd_total{period="month"} + storage_cost_usd_total{period="month"} + (gpu_hours_total * 2.5)) > 10000
+        labels:
+          severity: critical
+          team: finance
+        annotations:
+          summary: "Monthly cost budget EXCEEDED"
+          description: "Current monthly cost: ${{ $value | humanize }}. Budget: $10,000"
+
+      # Tenant Quota Alerts
+      - alert: TenantQuotaWarning
+        expr: |
+          tenant_quota_usage_percent > 80
+        labels:
+          severity: warning
+          team: support
+        annotations:
+          summary: "Tenant {{ $labels.tenant_id }} quota usage above 80%"
+          description: "Tenant {{ $labels.tenant_id }} has used {{ $value | humanizePercentage }} of {{ $labels.resource }} quota"
+
+      - alert: TenantQuotaExceeded
+        expr: |
+          tenant_quota_usage_percent > 100
+        labels:
+          severity: critical
+          team: support
+        annotations:
+          summary: "Tenant {{ $labels.tenant_id }} quota EXCEEDED"
+          description: "Tenant {{ $labels.tenant_id }} has exceeded {{ $labels.resource }} quota by {{ $value - 100 | humanizePercentage }}"
+
+  - name: database_alerts
+    interval: 1m
+    rules:
+      # Database Connection Pool: Alert if exhausted
+      - alert: DatabaseConnectionPoolExhausted
+        expr: |
+          db_connections_active / db_connections_max > 0.9
+        for: 5m
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Database connection pool nearly exhausted"
+          description: "{{ $value | humanizePercentage }} of database connections in use"
+
+      # Database Query Latency
+      - alert: SlowDatabaseQueries
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(db_query_duration_seconds_bucket[5m])) by (le, query_type)
+          ) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Slow database queries detected"
+          description: "p95 query latency for {{ $labels.query_type }} is {{ $value }}s"
+
+  - name: storage_alerts
+    interval: 5m
+    rules:
+      # Storage Usage: Alert at 80%, 90%
+      - alert: StorageUsage80Percent
+        expr: |
+          (storage_used_bytes / storage_total_bytes) > 0.8
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "Storage usage above 80%"
+          description: "{{ $labels.volume }} is {{ $value | humanizePercentage }} full"
+
+      - alert: StorageUsage90Percent
+        expr: |
+          (storage_used_bytes / storage_total_bytes) > 0.9
+        labels:
+          severity: critical
+          team: platform
+        annotations:
+          summary: "Storage usage above 90%"
+          description: "{{ $labels.volume }} is {{ $value | humanizePercentage }} full. Immediate action required."
+
+  - name: search_service_alerts
+    interval: 1m
+    rules:
+      # OpenSearch Cluster Health
+      - alert: OpenSearchClusterNotGreen
+        expr: |
+          opensearch_cluster_health_status != 0
+        for: 5m
+        labels:
+          severity: warning
+          team: platform
+        annotations:
+          summary: "OpenSearch cluster health degraded"
+          description: "OpenSearch cluster status is {{ $labels.status }}"
+
+      # Search Latency SLO: p95 < 1s
+      - alert: SearchLatencySLOBreach
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(search_request_duration_seconds_bucket[5m])) by (le)
+          ) > 1.0
+        for: 5m
+        labels:
+          severity: warning
+          slo: search_latency
+          team: platform
+        annotations:
+          summary: "Search p95 latency above 1s SLO"
+          description: "Search p95 latency is {{ $value }}s (target: <1s)"

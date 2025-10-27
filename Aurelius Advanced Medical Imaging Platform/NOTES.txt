@@ -1,0 +1,156 @@
+🎉 Aurelius Medical Imaging Platform has been installed!
+
+Release Name: {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+
+📊 Status:
+  helm status {{ .Release.Name }} -n {{ .Release.Namespace }}
+
+🔍 View Resources:
+  kubectl get all -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+
+📝 View Logs:
+  # Gateway
+  kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/component=gateway --tail=100 -f
+  
+  # ML Service
+  kubectl logs -n {{ .Release.Namespace }} -l app.kubernetes.io/component=ml-service --tail=100 -f
+
+🌐 Access Points:
+{{- if .Values.ingress.enabled }}
+  API Gateway: https://{{ (index .Values.ingress.hosts 0).host }}
+  Web UI: https://{{ (index .Values.ingress.hosts 1).host }}
+{{- else }}
+  # Port forward to access services locally
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "aurelius.fullname" . }}-gateway 8000:8000
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "aurelius.fullname" . }}-web-ui 3000:3000
+{{- end }}
+
+{{- if .Values.keycloak.enabled }}
+  Keycloak (Auth): https://{{ .Values.keycloak.ingress.hostname }}
+  
+  Default Admin Credentials:
+    Username: {{ .Values.keycloak.auth.adminUser }}
+    Password: <see secret: {{ include "aurelius.fullname" . }}-keycloak>
+{{- end }}
+
+{{- if .Values.grafana.enabled }}
+  Grafana (Monitoring): https://{{ (index .Values.grafana.ingress.hosts 0) }}
+  
+  Default Admin Password:
+    kubectl get secret {{ .Release.Name }}-grafana -n {{ .Release.Namespace }} -o jsonpath="{.data.admin-password}" | base64 --decode
+{{- end }}
+
+{{- if .Values.prometheus.enabled }}
+  Prometheus: http://{{ .Release.Name }}-prometheus-server
+{{- end }}
+
+🔒 Secrets:
+  View secrets:
+    kubectl get secrets -n {{ .Release.Namespace }}
+  
+  Get database password:
+    kubectl get secret {{ include "aurelius.fullname" . }}-secrets -n {{ .Release.Namespace }} -o jsonpath="{.data.database-url}" | base64 --decode
+
+🚀 Next Steps:
+
+1. Wait for all pods to be ready:
+   kubectl wait --for=condition=ready pod -l app.kubernetes.io/instance={{ .Release.Name }} -n {{ .Release.Namespace }} --timeout=300s
+
+2. Check pod status:
+   kubectl get pods -n {{ .Release.Namespace }}
+
+3. Run database migrations:
+   kubectl exec -n {{ .Release.Namespace }} -it deployment/{{ include "aurelius.fullname" . }}-gateway -- alembic upgrade head
+
+4. Create first tenant (admin user):
+   kubectl exec -n {{ .Release.Namespace }} -it deployment/{{ include "aurelius.fullname" . }}-gateway -- python -m scripts.create_tenant
+
+5. Access the application:
+{{- if .Values.ingress.enabled }}
+   Open https://{{ (index .Values.ingress.hosts 1).host }} in your browser
+{{- else }}
+   kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "aurelius.fullname" . }}-web-ui 3000:3000
+   Open http://localhost:3000 in your browser
+{{- end }}
+
+📚 Documentation:
+  - Helm Chart: https://github.com/aurelius/aurelius-medimaging/tree/main/infra/k8s/helm
+  - API Docs: https://{{ (index .Values.ingress.hosts 0).host }}/docs
+  - User Guide: https://docs.aurelius.io
+
+🐛 Troubleshooting:
+
+If pods are not starting:
+  kubectl describe pod -n {{ .Release.Namespace }} <pod-name>
+  kubectl logs -n {{ .Release.Namespace }} <pod-name>
+
+If services are not accessible:
+  kubectl get svc -n {{ .Release.Namespace }}
+  kubectl describe ingress -n {{ .Release.Namespace }}
+
+Check resource quotas:
+  kubectl describe resourcequota -n {{ .Release.Namespace }}
+
+{{- if .Values.mlService.enabled }}
+Check GPU availability:
+  kubectl describe nodes -l accelerator=nvidia-tesla-t4
+  kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/component=ml-service -o wide
+{{- end }}
+
+🔄 Upgrade:
+  helm upgrade {{ .Release.Name }} ./aurelius -n {{ .Release.Namespace }} -f values.yaml
+
+🗑️  Uninstall:
+  helm uninstall {{ .Release.Name }} -n {{ .Release.Namespace }}
+
+⚠️  IMPORTANT SECURITY NOTES:
+
+1. Change default passwords immediately:
+   - PostgreSQL password
+   - Redis password
+   - Keycloak admin password
+   - Grafana admin password
+   - MinIO root credentials
+
+2. Review and update secrets in production:
+   kubectl edit secret {{ include "aurelius.fullname" . }}-secrets -n {{ .Release.Namespace }}
+
+3. Enable TLS/HTTPS in production:
+   - Install cert-manager for automatic certificate provisioning
+   - Update ingress.tls.enabled to true
+   - Configure DNS records
+
+4. Review network policies:
+   kubectl get networkpolicies -n {{ .Release.Namespace }}
+
+5. Configure backup schedule:
+   kubectl get cronjob -n {{ .Release.Namespace }}
+
+📊 Monitoring:
+{{- if .Values.prometheus.enabled }}
+  - Prometheus: collecting metrics from all services
+  - AlertManager: configured for critical alerts
+{{- end }}
+{{- if .Values.grafana.enabled }}
+  - Grafana: dashboards available at https://{{ (index .Values.grafana.ingress.hosts 0) }}
+{{- end }}
+{{- if .Values.jaeger.enabled }}
+  - Jaeger: distributed tracing at https://{{ (index .Values.jaeger.query.ingress.hosts 0) }}
+{{- end }}
+
+🎯 Health Checks:
+  # Overall cluster health
+  kubectl get pods,svc,ingress -n {{ .Release.Namespace }}
+  
+  # Check deployments
+  kubectl get deployments -n {{ .Release.Namespace }}
+  
+  # Check HPA status
+  kubectl get hpa -n {{ .Release.Namespace }}
+  
+  # Check PVC status
+  kubectl get pvc -n {{ .Release.Namespace }}
+
+Thank you for installing Aurelius Medical Imaging Platform! 🏥
+For support, visit: https://support.aurelius.io

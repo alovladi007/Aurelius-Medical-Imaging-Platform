@@ -1,0 +1,317 @@
+{
+  "dashboard": {
+    "title": "Aurelius GPU & Cost Tracking",
+    "tags": ["aurelius", "gpu", "costs", "billing"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "1m",
+    "panels": [
+      {
+        "id": 1,
+        "title": "GPU Utilization (%)",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "nvidia_smi_utilization_gpu_ratio{job=\"ml-svc\"} * 100",
+            "legendFormat": "{{gpu_index}} - {{gpu_name}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "percent",
+            "label": "Utilization",
+            "max": 100,
+            "min": 0
+          },
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 2,
+        "title": "GPU Memory Usage",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+        "targets": [
+          {
+            "expr": "nvidia_smi_memory_used_bytes{job=\"ml-svc\"} / nvidia_smi_memory_total_bytes{job=\"ml-svc\"} * 100",
+            "legendFormat": "{{gpu_index}} Memory %",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {
+            "format": "percent",
+            "label": "Memory %",
+            "max": 100,
+            "min": 0
+          },
+          {"format": "short"}
+        ],
+        "alert": {
+          "name": "High GPU Memory",
+          "conditions": [
+            {
+              "evaluator": {"params": [90], "type": "gt"},
+              "operator": {"type": "and"},
+              "query": {"params": ["A", "5m", "now"]},
+              "reducer": {"params": [], "type": "avg"},
+              "type": "query"
+            }
+          ],
+          "frequency": "1m",
+          "handler": 1,
+          "message": "GPU memory usage exceeded 90%",
+          "noDataState": "no_data",
+          "executionErrorState": "alerting"
+        }
+      },
+      {
+        "id": 3,
+        "title": "GPU Temperature (°C)",
+        "type": "graph",
+        "gridPos": {"h": 6, "w": 8, "x": 0, "y": 8},
+        "targets": [
+          {
+            "expr": "nvidia_smi_temperature_gpu_celsius{job=\"ml-svc\"}",
+            "legendFormat": "{{gpu_index}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "celsius", "label": "Temperature"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 4,
+        "title": "GPU Power Usage (W)",
+        "type": "graph",
+        "gridPos": {"h": 6, "w": 8, "x": 8, "y": 8},
+        "targets": [
+          {
+            "expr": "nvidia_smi_power_draw_watts{job=\"ml-svc\"}",
+            "legendFormat": "{{gpu_index}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "watt", "label": "Power"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 5,
+        "title": "Inference Batch Size",
+        "type": "stat",
+        "gridPos": {"h": 6, "w": 8, "x": 16, "y": 8},
+        "targets": [
+          {
+            "expr": "avg(ml_inference_batch_size)",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "unit": "short"
+        }
+      },
+      {
+        "id": 6,
+        "title": "API Call Costs (Monthly)",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 0, "y": 14},
+        "targets": [
+          {
+            "expr": "sum(api_calls_cost_usd_total{period=\"month\"})",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "unit": "currencyUSD",
+          "graphMode": "area"
+        }
+      },
+      {
+        "id": 7,
+        "title": "Storage Costs (Monthly)",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 6, "y": 14},
+        "targets": [
+          {
+            "expr": "sum(storage_cost_usd_total{period=\"month\"})",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "unit": "currencyUSD",
+          "graphMode": "area"
+        }
+      },
+      {
+        "id": 8,
+        "title": "GPU Costs (Monthly)",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 12, "y": 14},
+        "targets": [
+          {
+            "expr": "sum(gpu_hours_total * 2.5)",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "unit": "currencyUSD",
+          "graphMode": "area"
+        }
+      },
+      {
+        "id": 9,
+        "title": "Total Monthly Cost",
+        "type": "stat",
+        "gridPos": {"h": 4, "w": 6, "x": 18, "y": 14},
+        "targets": [
+          {
+            "expr": "sum(api_calls_cost_usd_total{period=\"month\"}) + sum(storage_cost_usd_total{period=\"month\"}) + sum(gpu_hours_total * 2.5)",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "unit": "currencyUSD",
+          "graphMode": "area",
+          "thresholds": {
+            "steps": [
+              {"value": 0, "color": "green"},
+              {"value": 5000, "color": "yellow"},
+              {"value": 10000, "color": "red"}
+            ]
+          }
+        }
+      },
+      {
+        "id": 10,
+        "title": "Cost Breakdown by Tenant",
+        "type": "piechart",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 18},
+        "targets": [
+          {
+            "expr": "sum(tenant_costs_usd_total{period=\"month\"}) by (tenant_id)",
+            "legendFormat": "{{tenant_id}}",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "Cost Over Time",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 18},
+        "targets": [
+          {
+            "expr": "sum(rate(api_calls_cost_usd_total[1h])) * 24 * 30",
+            "legendFormat": "API Calls (projected)",
+            "refId": "A"
+          },
+          {
+            "expr": "sum(rate(storage_cost_usd_total[1h])) * 24 * 30",
+            "legendFormat": "Storage (projected)",
+            "refId": "B"
+          },
+          {
+            "expr": "sum(rate(gpu_hours_total[1h])) * 24 * 30 * 2.5",
+            "legendFormat": "GPU (projected)",
+            "refId": "C"
+          }
+        ],
+        "yaxes": [
+          {"format": "currencyUSD", "label": "Cost/Month"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 12,
+        "title": "Tenant Quota Usage",
+        "type": "table",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 26},
+        "targets": [
+          {
+            "expr": "tenant_quota_usage_percent",
+            "format": "table",
+            "refId": "A"
+          }
+        ]
+      },
+      {
+        "id": 13,
+        "title": "GPU Hours by Model",
+        "type": "graph",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 26},
+        "targets": [
+          {
+            "expr": "sum(rate(ml_inference_gpu_seconds_total[5m])) by (model_name) / 3600",
+            "legendFormat": "{{model_name}}",
+            "refId": "A"
+          }
+        ],
+        "yaxes": [
+          {"format": "short", "label": "GPU Hours/sec"},
+          {"format": "short"}
+        ]
+      },
+      {
+        "id": 14,
+        "title": "Budget Alerts",
+        "type": "alertlist",
+        "gridPos": {"h": 6, "w": 12, "x": 0, "y": 34},
+        "options": {
+          "showOptions": "current",
+          "maxItems": 10,
+          "sortOrder": 1,
+          "dashboardAlerts": true,
+          "alertName": "",
+          "dashboardTitle": "",
+          "tags": ["cost", "budget"]
+        }
+      },
+      {
+        "id": 15,
+        "title": "Cost per API Call",
+        "type": "stat",
+        "gridPos": {"h": 6, "w": 6, "x": 12, "y": 34},
+        "targets": [
+          {
+            "expr": "sum(api_calls_cost_usd_total{period=\"month\"}) / sum(increase(http_requests_total{job=\"gateway\"}[30d]))",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "unit": "currencyUSD",
+          "decimals": 6
+        }
+      },
+      {
+        "id": 16,
+        "title": "Cost per Inference",
+        "type": "stat",
+        "gridPos": {"h": 6, "w": 6, "x": 18, "y": 34},
+        "targets": [
+          {
+            "expr": "sum(gpu_hours_total * 2.5) / sum(increase(ml_predictions_total[30d]))",
+            "refId": "A"
+          }
+        ],
+        "options": {
+          "colorMode": "value",
+          "unit": "currencyUSD",
+          "decimals": 4
+        }
+      }
+    ]
+  }
+}

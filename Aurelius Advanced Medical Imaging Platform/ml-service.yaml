@@ -1,0 +1,175 @@
+{{- if .Values.mlService.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "aurelius.fullname" . }}-ml-service
+  labels:
+    {{- include "aurelius.ml.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.mlService.autoscaling.enabled }}
+  replicas: {{ .Values.mlService.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "aurelius.ml.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+      labels:
+        {{- include "aurelius.ml.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "aurelius.serviceAccountName" . }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      # GPU node selector and tolerations
+      {{- with .Values.mlService.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.mlService.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: ml-service
+        image: "{{ .Values.global.imageRegistry }}/{{ .Values.mlService.image.repository }}:{{ .Values.mlService.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.mlService.image.pullPolicy }}
+        securityContext:
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+        ports:
+        - name: grpc
+          containerPort: 50052
+          protocol: TCP
+        - name: metrics
+          containerPort: 8001
+          protocol: TCP
+        {{- if .Values.mlService.livenessProbe }}
+        livenessProbe:
+          {{- toYaml .Values.mlService.livenessProbe | nindent 10 }}
+        {{- end }}
+        {{- if .Values.mlService.readinessProbe }}
+        readinessProbe:
+          {{- toYaml .Values.mlService.readinessProbe | nindent 10 }}
+        {{- end }}
+        resources:
+          {{- toYaml .Values.mlService.resources | nindent 10 }}
+        env:
+        - name: MODEL_PATH
+          value: "/models"
+        - name: CUDA_VISIBLE_DEVICES
+          value: "0"
+        - name: NVIDIA_VISIBLE_DEVICES
+          value: "all"
+        - name: NVIDIA_DRIVER_CAPABILITIES
+          value: "compute,utility"
+        - name: OTEL_SERVICE_NAME
+          value: "ml-service"
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://jaeger-collector:4317"
+        volumeMounts:
+        - name: models
+          mountPath: /models
+        - name: tmp
+          mountPath: /tmp
+        - name: cache
+          mountPath: /app/cache
+      volumes:
+      - name: models
+        {{- if .Values.mlService.persistence.enabled }}
+        persistentVolumeClaim:
+          claimName: {{ include "aurelius.fullname" . }}-ml-models
+        {{- else }}
+        emptyDir: {}
+        {{- end }}
+      - name: tmp
+        emptyDir: {}
+      - name: cache
+        emptyDir:
+          sizeLimit: 10Gi
+      # Pod affinity to spread GPU workloads across nodes
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  {{- include "aurelius.ml.selectorLabels" . | nindent 18 }}
+              topologyKey: kubernetes.io/hostname
+---
+{{- if .Values.mlService.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "aurelius.fullname" . }}-ml-models
+  labels:
+    {{- include "aurelius.ml.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - {{ .Values.mlService.persistence.accessMode }}
+  storageClassName: {{ .Values.mlService.persistence.storageClass | default .Values.global.storageClass }}
+  resources:
+    requests:
+      storage: {{ .Values.mlService.persistence.size }}
+{{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "aurelius.fullname" . }}-ml-service
+  labels:
+    {{- include "aurelius.ml.labels" . | nindent 4 }}
+  annotations:
+    prometheus.io/scrape: "true"
+    prometheus.io/port: "8001"
+    prometheus.io/path: "/metrics"
+spec:
+  type: ClusterIP
+  ports:
+  {{- range .Values.mlService.service.ports }}
+  - port: {{ .port }}
+    targetPort: {{ .name }}
+    protocol: TCP
+    name: {{ .name }}
+  {{- end }}
+  selector:
+    {{- include "aurelius.ml.selectorLabels" . | nindent 4 }}
+---
+{{- if .Values.mlService.autoscaling.enabled }}
+apiVersion: {{ include "aurelius.hpa.apiVersion" . }}
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "aurelius.fullname" . }}-ml-service
+  labels:
+    {{- include "aurelius.ml.labels" . | nindent 4 }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "aurelius.fullname" . }}-ml-service
+  minReplicas: {{ .Values.mlService.autoscaling.minReplicas }}
+  maxReplicas: {{ .Values.mlService.autoscaling.maxReplicas }}
+  metrics:
+  {{- if .Values.mlService.autoscaling.targetCPUUtilizationPercentage }}
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: {{ .Values.mlService.autoscaling.targetCPUUtilizationPercentage }}
+  {{- end }}
+{{- end }}
+{{- end }}
