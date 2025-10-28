@@ -2,41 +2,35 @@
 
 ## Overview
 
-Due to port conflicts on the system, all external ports have been updated to use available ports. **Internal container ports remain unchanged** - only the host machine ports have been modified.
+Due to extensive port conflicts on the system, **all external ports have been moved to the high port range (10000-11200)** to ensure zero conflicts. **Internal container ports remain unchanged** - only the host machine ports have been modified.
 
 ## Port Mapping Changes
 
-### Original vs New Ports
+### Original vs New Ports (High Range)
 
-| Service | Old Port | New Port | Internal Port |
-|---------|----------|----------|---------------|
-| **Frontend** | 3000 | **3100** | 3000 |
-| **API Gateway** | 8000 | **8200** | 8000 |
-| **Keycloak** | 8080 | **8180** | 8080 |
-| **PostgreSQL** | 5432 | **5434** | 5432 |
-| **MLflow** | 5000 | **5100** | 5000 |
-| **Grafana** | 3001 | **3101** | 3000 |
-| **FHIR Server** | 8083 | **8183** | 8080 |
-| **MinIO API** | 9000 | **9100** | 9000 |
-| **MinIO Console** | 9001 | **9101** | 9001 |
-| **Prometheus** | 9090 | **9190** | 9090 |
-| **OpenSearch** | 9200 | **9300** | 9200 |
-
-### Unchanged Ports
-
-These ports did not have conflicts:
-
-| Service | Port | Notes |
-|---------|------|-------|
-| Redis | 6379 | No conflict |
-| Orthanc Web | 8042 | No conflict |
-| Orthanc DICOM | 4242 | No conflict |
-| Imaging Service | 8001 | No conflict |
-| ML Service | 8002 | No conflict |
-| Search Service | 8004 | No conflict |
-| Jaeger UI | 16686 | No conflict |
-| OpenSearch Dashboards | 5601 | No conflict |
-| Kafka | 9092 | No conflict |
+| Service | Original Port | New Port | Internal Port |
+|---------|---------------|----------|---------------|
+| **Frontend** | 3000 | **10100** | 3000 |
+| **API Gateway** | 8000 | **10200** | 8000 |
+| **Imaging Service** | 8001 | **10201** | 8001 |
+| **ML Service** | 8002 | **10202** | 8002 |
+| **Search Service** | 8004 | **10203** | 8004 |
+| **Redis** | 6379 | **10250** | 6379 |
+| **Keycloak** | 8080 | **10300** | 8080 |
+| **PostgreSQL** | 5432 | **10400** | 5432 |
+| **Grafana** | 3001 | **10500** | 3000 |
+| **Prometheus** | 9090 | **10600** | 9090 |
+| **MinIO API** | 9000 | **10700** | 9000 |
+| **MinIO Console** | 9001 | **10701** | 9001 |
+| **MLflow** | 5000 | **10800** | 5000 |
+| **Orthanc Web** | 8042 | **10850** | 8042 |
+| **Orthanc DICOM** | 4242 | **10851** | 4242 |
+| **FHIR Server** | 8083 | **10900** | 8080 |
+| **Jaeger UI** | 16686 | **10950** | 16686 |
+| **OpenSearch** | 9200 | **11000** | 9200 |
+| **OpenSearch (Perf)** | 9600 | **11001** | 9600 |
+| **OpenSearch Dashboards** | 5601 | **11100** | 5601 |
+| **Kafka** | 9092 | **11200** | 9092 |
 
 ## Updated Access URLs
 
@@ -44,34 +38,37 @@ These ports did not have conflicts:
 
 ```
 🌐 Frontend Application
-   http://localhost:3100
+   http://localhost:10100
 
 📚 API Gateway & Documentation
-   http://localhost:8200
-   http://localhost:8200/docs
+   http://localhost:10200
+   http://localhost:10200/docs
 
 🔐 Authentication (Keycloak)
-   http://localhost:8180
+   http://localhost:10300
    Username: admin
    Password: admin
 
 📊 Monitoring & Metrics
-   Grafana:    http://localhost:3101 (admin/admin)
-   Prometheus: http://localhost:9190
-   Jaeger:     http://localhost:16686
+   Grafana:    http://localhost:10500 (admin/admin)
+   Prometheus: http://localhost:10600
+   Jaeger:     http://localhost:10950
 
 🗂️ Storage & Data
-   MinIO Console: http://localhost:9101 (minioadmin/minioadmin)
-   PostgreSQL:    localhost:5434
-   OpenSearch:    http://localhost:9300
+   MinIO Console: http://localhost:10701 (minioadmin/minioadmin)
+   PostgreSQL:    localhost:10400
+   OpenSearch:    http://localhost:11000
+   Redis:         localhost:10250
 
 🏥 Medical Imaging
-   Orthanc:       http://localhost:8042 (orthanc/orthanc)
-   DICOM Port:    localhost:4242
+   Orthanc Web:   http://localhost:10850 (orthanc/orthanc)
+   DICOM Port:    localhost:10851
 
 📦 Additional Services
-   FHIR Server:   http://localhost:8183/fhir
-   MLflow:        http://localhost:5100
+   FHIR Server:   http://localhost:10900/fhir
+   MLflow:        http://localhost:10800
+   OpenSearch Dashboards: http://localhost:11100
+   Kafka:         localhost:11200
 ```
 
 ## Configuration Updates
@@ -91,10 +88,14 @@ The `.env.example` file has been updated with new URLs:
 
 ```env
 # Updated URLs
-KEYCLOAK_URL=http://localhost:8180
-MINIO_ENDPOINT=localhost:9100
-DATABASE_URL=postgresql://postgres:postgres@localhost:5434/aurelius
-FHIR_SVC_URL=http://localhost:8183/fhir
+KEYCLOAK_URL=http://localhost:10300
+MINIO_ENDPOINT=localhost:10700
+DATABASE_URL=postgresql://postgres:postgres@localhost:10400/aurelius
+FHIR_SVC_URL=http://localhost:10900/fhir
+IMAGING_SVC_URL=http://localhost:10201
+ML_SVC_URL=http://localhost:10202
+SEARCH_SVC_URL=http://localhost:10203
+ORTHANC_URL=http://localhost:10850
 ```
 
 ### Frontend Configuration
@@ -102,8 +103,8 @@ FHIR_SVC_URL=http://localhost:8183/fhir
 The frontend is configured to use the new Gateway port:
 
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:8200
-NEXT_PUBLIC_KEYCLOAK_URL=http://localhost:8180
+NEXT_PUBLIC_API_URL=http://localhost:10200
+NEXT_PUBLIC_KEYCLOAK_URL=http://localhost:10300
 ```
 
 ### Startup Script
@@ -126,16 +127,16 @@ After startup, visit:
 
 ```bash
 # Frontend (React/Next.js Application)
-open http://localhost:3100
+open http://localhost:10100
 
 # API Documentation
-open http://localhost:8200/docs
+open http://localhost:10200/docs
 
 # Keycloak Admin Console
-open http://localhost:8180
+open http://localhost:10300
 
 # Grafana Dashboards
-open http://localhost:3101
+open http://localhost:10500
 ```
 
 ### 3. Database Connection
@@ -144,7 +145,7 @@ Update your database client:
 
 ```
 Host: localhost
-Port: 5434
+Port: 10400
 Database: aurelius
 Username: postgres
 Password: postgres
@@ -158,8 +159,8 @@ Update your API base URL in code:
 // Old
 const API_URL = 'http://localhost:8000'
 
-// New
-const API_URL = 'http://localhost:8200'
+// New (High Port Range)
+const API_URL = 'http://localhost:10200'
 ```
 
 ## Impact on Existing Connections
@@ -168,10 +169,12 @@ const API_URL = 'http://localhost:8200'
 
 If you have existing applications or scripts connecting to the old ports, you must update:
 
-1. **Database connections**: Change port from 5432 → 5434
-2. **API calls**: Change base URL from 8000 → 8200
-3. **Keycloak integration**: Change URL from 8080 → 8180
-4. **MinIO clients**: Change endpoint from 9000 → 9100
+1. **Database connections**: Change port from 5432 → **10400**
+2. **API calls**: Change base URL from 8000 → **10200**
+3. **Keycloak integration**: Change URL from 8080 → **10300**
+4. **MinIO clients**: Change endpoint from 9000 → **10700**
+5. **Frontend**: Change URL from 3000 → **10100**
+6. **Monitoring**: Grafana 3001 → **10500**, Prometheus 9090 → **10600**
 
 ### Docker Internal Communication
 
@@ -192,8 +195,8 @@ If you see errors about ports being in use:
 
 ```bash
 # Check what's using a port
-lsof -i :3100
-lsof -i :8200
+lsof -i :10100
+lsof -i :10200
 
 # Kill the process if needed
 kill -9 <PID>
@@ -236,22 +239,25 @@ docker compose down -v
 
 ```bash
 # Frontend
-curl http://localhost:3100
+curl http://localhost:10100
 
 # API Gateway
-curl http://localhost:8200/health
+curl http://localhost:10200/health
 
 # Keycloak
-curl http://localhost:8180/health/ready
+curl http://localhost:10300/health/ready
 
 # MinIO
-curl http://localhost:9100/minio/health/live
+curl http://localhost:10700/minio/health/live
 
 # Prometheus
-curl http://localhost:9190/-/healthy
+curl http://localhost:10600/-/healthy
 
 # Grafana
-curl http://localhost:3101/api/health
+curl http://localhost:10500/api/health
+
+# Orthanc
+curl http://localhost:10850/system
 ```
 
 ### Docker Compose Verification
@@ -269,18 +275,29 @@ docker compose logs -f
 
 ## Summary
 
-✅ **All port conflicts resolved**
+✅ **All port conflicts resolved using high port range**
 ✅ **Docker Compose updated**
 ✅ **Environment files updated**
 ✅ **Startup script updated**
 ✅ **Documentation updated**
+✅ **Zero conflicts with existing services**
 
 ### Key Changes:
-- Frontend: **3100** (was 3000)
-- API Gateway: **8200** (was 8000)
-- Keycloak: **8180** (was 8080)
-- PostgreSQL: **5434** (was 5432)
-- All other services updated as needed
+- **All services now use port range 10000-11200**
+- Frontend: **10100** (was 3000)
+- API Gateway: **10200** (was 8000)
+- Keycloak: **10300** (was 8080)
+- PostgreSQL: **10400** (was 5432)
+- Grafana: **10500** (was 3001)
+- Prometheus: **10600** (was 9090)
+- MinIO: **10700/10701** (was 9000/9001)
+- MLflow: **10800** (was 5000)
+- Orthanc: **10850/10851** (was 8042/4242)
+- FHIR: **10900** (was 8083)
+- Jaeger: **10950** (was 16686)
+- OpenSearch: **11000/11001** (was 9200/9600)
+- OpenSearch Dashboards: **11100** (was 5601)
+- Kafka: **11200** (was 9092)
 
 ### No Changes to:
 - Internal Docker network communication
