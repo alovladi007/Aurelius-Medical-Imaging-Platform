@@ -1,0 +1,131 @@
+# Dataset Configuration for Cancer Histopathology
+# Supports two modes: folder_binary (folder structure with 0/1 subdirs) and csv_labels (images + CSV)
+
+dataset:
+  # Dataset type: "folder_binary" or "csv_labels"
+  type: "folder_binary"  # Change to "csv_labels" if using CSV labels
+
+  # Dataset name for tracking
+  name: "histopathology_cancer"
+
+  # Paths
+  paths:
+    # Root folder containing raw images
+    raw_data_dir: "data/raw"
+
+    # Processed data output directory
+    processed_data_dir: "data/processed"
+
+    # Train/val/test split CSV files
+    splits_dir: "data/splits"
+
+    # For folder_binary mode:
+    # Expected structure: data/raw/train/{0,1}/*.png
+    #                    data/raw/val/{0,1}/*.png (optional)
+    train_folder: "data/raw/train"
+    val_folder: "data/raw/val"  # Set to null if no separate validation
+    test_folder: "data/raw/test"  # Set to null if no separate test set
+
+    # For csv_labels mode:
+    images_folder: "data/raw/images"
+    labels_csv: "data/raw/labels.csv"
+    csv_image_col: "image_id"  # Column name for image filename
+    csv_label_col: "label"  # Column name for label
+    csv_metadata_cols: []  # Additional columns to keep (e.g., ["patient_id", "tissue_type"])
+
+  # Image specifications
+  image:
+    # Image file extensions to include
+    extensions: [".png", ".jpg", ".jpeg", ".tif", ".tiff"]
+
+    # Expected image size (height, width)
+    target_size: [224, 224]
+
+    # Number of channels (3 for RGB, 1 for grayscale)
+    channels: 3
+
+    # Whether to create patches/tiles from large images
+    create_patches: false
+    patch_size: 512  # Size of patches if create_patches is true
+    patch_overlap: 0  # Overlap in pixels
+    min_tissue_ratio: 0.5  # Minimum ratio of tissue (non-white) in patch
+
+  # Label specifications
+  labels:
+    # Number of classes
+    num_classes: 2
+
+    # Class names (in order)
+    class_names: ["non_cancer", "cancer"]
+
+    # For multi-label classification
+    multi_label: false
+
+    # Class weights for imbalanced datasets (null for auto-compute)
+    class_weights: null  # e.g., [1.0, 2.5] or null
+
+  # Train/Val/Test split configuration
+  split:
+    # Split ratios (must sum to 1.0)
+    train_ratio: 0.7
+    val_ratio: 0.15
+    test_ratio: 0.15
+
+    # Stratified split to maintain class balance
+    stratify: true
+
+    # Random seed for reproducibility
+    seed: 42
+
+    # Minimum samples per class in val/test
+    min_samples_per_class: 10
+
+  # Data preprocessing
+  preprocessing:
+    # Normalization statistics (ImageNet defaults)
+    normalize_mean: [0.485, 0.456, 0.406]
+    normalize_std: [0.229, 0.224, 0.225]
+
+    # Apply stain normalization (histopathology-specific)
+    stain_normalization: false
+    stain_norm_method: "macenko"  # "macenko" or "vahadane"
+
+    # Quality filtering
+    filter_blurry: false
+    blur_threshold: 100.0  # Laplacian variance threshold
+
+    filter_saturated: false
+    saturation_threshold: 250  # Max pixel value threshold
+
+  # Augmentation settings (applied during training)
+  augmentation:
+    # Basic augmentations
+    horizontal_flip: true
+    vertical_flip: true
+    rotation_degrees: 90  # Multiples of 90
+
+    # Color augmentations
+    brightness: 0.2
+    contrast: 0.2
+    saturation: 0.2
+    hue: 0.1
+
+    # Geometric augmentations
+    random_crop: true
+    random_scale: [0.8, 1.2]
+
+    # Advanced augmentations
+    gaussian_blur: 0.1  # Probability
+    gaussian_noise: 0.05  # Std dev
+
+    # Mixup/Cutmix
+    mixup_alpha: 0.0  # Set > 0 to enable mixup
+    cutmix_alpha: 0.0  # Set > 0 to enable cutmix
+
+  # DataLoader settings
+  dataloader:
+    batch_size: 32
+    num_workers: 4
+    pin_memory: true
+    persistent_workers: true
+    prefetch_factor: 2

@@ -1,0 +1,106 @@
+# Vision Transformer (ViT) Model Configuration
+
+model:
+  name: "vit_base_patch16_224"
+  architecture: "vit"
+
+  # Model variant
+  variant: "vit_base_patch16_224"  # vit_tiny, vit_small, vit_base, vit_large
+
+  # Pretrained weights
+  pretrained: true
+  pretrained_weights: "IMAGENET1K_V1"
+
+  # Feature extraction vs fine-tuning
+  freeze_backbone: false
+  freeze_layers: 0  # Number of transformer blocks to freeze
+
+  # Classification head
+  head:
+    num_classes: 2
+    dropout: 0.1
+    activation: "gelu"  # GELU is standard for transformers
+
+    use_custom_head: true
+    hidden_dims: [384]  # Intermediate MLP head
+    batch_norm: false  # Use LayerNorm instead for transformers
+    use_layer_norm: true
+
+  # Transformer architecture
+  transformer:
+    patch_size: 16
+    embed_dim: 768  # ViT-Base
+    depth: 12  # Number of transformer blocks
+    num_heads: 12
+    mlp_ratio: 4.0
+    qkv_bias: true
+
+    # Attention dropout
+    attn_drop_rate: 0.0
+    proj_drop_rate: 0.0
+
+    # Stochastic depth
+    drop_path_rate: 0.1
+
+  # Global pooling (CLS token vs mean pooling)
+  global_pool: "cls"  # cls, mean
+
+  # Feature dimension
+  feature_dim: 768  # ViT-Base
+
+  # Auxiliary outputs
+  extract_features: true
+  feature_layers: ["blocks.9", "blocks.11"]  # Extract from specific blocks
+
+  # Input specifications
+  input:
+    size: [224, 224]
+    channels: 3
+
+  # Loss function
+  loss:
+    type: "cross_entropy"
+    label_smoothing: 0.1
+    focal_alpha: null
+    focal_gamma: 2.0
+
+  # Optimizer (ViT typically uses AdamW with specific settings)
+  optimizer:
+    type: "adamw"
+    lr: 0.0003  # Lower LR for ViT
+    weight_decay: 0.0001
+    betas: [0.9, 0.999]
+
+  # Learning rate scheduler
+  scheduler:
+    type: "cosine"
+    warmup_epochs: 10  # Longer warmup for ViT
+    min_lr: 0.00001
+
+  # Training settings
+  training:
+    max_epochs: 100
+    early_stopping_patience: 15
+    gradient_clip_val: 1.0
+    accumulate_grad_batches: 2  # ViT may need larger effective batch size
+    mixed_precision: true
+    gradient_checkpointing: true  # Save memory with transformers
+
+  # Augmentation (ViT often needs stronger augmentation)
+  augmentation:
+    rand_augment: true  # RandAugment
+    rand_augment_n: 2
+    rand_augment_m: 9
+
+    mixup_alpha: 0.8
+    cutmix_alpha: 1.0
+
+  # Metrics to track
+  metrics:
+    - "accuracy"
+    - "precision"
+    - "recall"
+    - "f1"
+    - "auroc"
+    - "auprc"
+    - "confusion_matrix"

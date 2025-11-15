@@ -1,0 +1,189 @@
+# Default Evaluation Configuration
+
+# Experiment
+experiment:
+  name: "cancer_histopathology_eval"
+  run_name: null  # Auto-generated if null
+  tags: ["evaluation", "cancer", "histopathology"]
+
+# Model checkpoint
+checkpoint:
+  path: null  # Required: path to model checkpoint
+  load_best: true  # Load best checkpoint from training run
+
+# Data
+data:
+  split: "test"  # test, val, or train
+  batch_size: 32
+  num_workers: 4
+  shuffle: false
+
+# Evaluation metrics
+metrics:
+  classification:
+    - "accuracy"
+    - "balanced_accuracy"
+    - "precision"
+    - "recall"
+    - "f1"
+    - "specificity"
+    - "auroc"
+    - "auprc"
+    - "confusion_matrix"
+    - "classification_report"
+
+  # Per-class metrics
+  per_class_metrics: true
+
+  # Confidence calibration
+  calibration:
+    enabled: true
+    n_bins: 10
+
+  # Threshold analysis
+  threshold_analysis:
+    enabled: true
+    thresholds: [0.3, 0.4, 0.5, 0.6, 0.7]
+
+# Test-time augmentation
+tta:
+  enabled: false
+  n_transforms: 5
+  transforms:
+    - "horizontal_flip"
+    - "vertical_flip"
+    - "rotate_90"
+    - "rotate_180"
+    - "rotate_270"
+
+# Explainability
+explainability:
+  enabled: true
+  methods:
+    - "gradcam"
+    - "gradcam++"
+
+  # Number of samples per class
+  samples_per_class: 50
+
+  # Visualization settings
+  overlay_alpha: 0.4
+  colormap: "jet"
+
+  # Save settings
+  save_visualizations: true
+  output_dir: "experiments/eval_explanations"
+
+# Quantitative features
+features:
+  extract: true
+  types:
+    - "deep_embeddings"
+    - "color_statistics"
+    - "texture_glcm"
+
+  # Feature analysis
+  analysis:
+    # Dimensionality reduction
+    pca: true
+    umap: true
+
+    # Feature importance
+    permutation_importance: true
+
+    # Statistical tests
+    statistical_tests: true  # Compare features between classes
+
+  output_dir: "experiments/eval_features"
+
+# Predictions
+predictions:
+  # Save predictions
+  save: true
+  output_format: "csv"  # csv, json, parquet
+  output_dir: "experiments/predictions"
+
+  # Include in output
+  include_probabilities: true
+  include_features: false
+  include_metadata: true
+
+# Error analysis
+error_analysis:
+  enabled: true
+
+  # Analyze misclassifications
+  analyze_errors: true
+
+  # Confidence-based analysis
+  high_confidence_errors: true  # Errors with high confidence
+  low_confidence_correct: true  # Correct predictions with low confidence
+
+  # Save error samples
+  save_error_samples: true
+  max_samples: 100
+
+  output_dir: "experiments/error_analysis"
+
+# Statistical analysis
+statistical:
+  # Bootstrap confidence intervals
+  bootstrap:
+    enabled: true
+    n_iterations: 1000
+    confidence_level: 0.95
+
+  # Stratified analysis
+  stratify_by: null  # Metadata column to stratify by (e.g., "tissue_type")
+
+# Visualization
+visualization:
+  # ROC curves
+  roc_curve: true
+
+  # Precision-Recall curves
+  pr_curve: true
+
+  # Confusion matrix
+  confusion_matrix: true
+  normalize: true  # Normalize confusion matrix
+
+  # Calibration plot
+  calibration_plot: true
+
+  # Feature distributions
+  feature_distributions: true
+
+  # UMAP/t-SNE embeddings
+  embedding_plot: true
+  embedding_method: "umap"  # umap, tsne
+
+  # Save plots
+  save_plots: true
+  output_dir: "experiments/eval_plots"
+  format: "png"  # png, pdf, svg
+  dpi: 300
+
+# Reporting
+report:
+  # Generate comprehensive report
+  enabled: true
+  format: "html"  # html, pdf, markdown
+  include_plots: true
+  include_tables: true
+  output_path: "experiments/evaluation_report.html"
+
+# Logging
+logging:
+  level: "INFO"
+  mlflow:
+    enabled: true
+    tracking_uri: "experiments/mlruns"
+    log_results: true
+    log_artifacts: true
+
+# Hardware
+hardware:
+  device: "auto"
+  num_workers: 4
+  pin_memory: true
