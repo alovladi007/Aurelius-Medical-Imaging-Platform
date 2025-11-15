@@ -1,12 +1,13 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import '@/styles/globals.css'
+import { Sidebar } from '@/components/layout/Sidebar'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Aurelius Medical Imaging Platform',
-  description: 'HIPAA-compliant medical imaging platform with AI/ML capabilities',
+  title: 'Aurelius Research Platform - Medical Imaging & AI',
+  description: 'Advanced medical imaging research platform with AI/ML capabilities, DICOM processing, and collaborative tools',
 }
 
 export default function RootLayout({
@@ -17,7 +18,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
-        {children}
+        <div className="flex h-screen overflow-hidden">
+          <Sidebar />
+          <main className="flex-1 overflow-y-auto">
+            {children}
+          </main>
+        </div>
       </body>
     </html>
   )

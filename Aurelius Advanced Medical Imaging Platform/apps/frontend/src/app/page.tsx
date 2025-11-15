@@ -2,28 +2,34 @@
 
 import { useEffect, useState } from 'react'
 import {
-  Activity,
-  Users,
   Database,
-  Cpu,
+  Users,
   Brain,
-  FileText,
+  Activity,
   TrendingUp,
-  AlertCircle,
-  CheckCircle,
-  Clock,
-  Download,
+  TrendingDown,
   Upload,
-  Zap
+  Download,
+  Clock,
+  CheckCircle,
+  AlertTriangle,
+  Zap,
+  FileText,
+  Microscope,
+  Beaker
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { MetricsCard } from '@/components/research/MetricsCard'
+import { StudyTable } from '@/components/research/StudyTable'
+import { ResearchAnalytics } from '@/components/research/ResearchAnalytics'
 import apiClient from '@/lib/api-client'
-import { formatBytes, formatNumber, formatRelativeTime } from '@/lib/utils'
+import { formatBytes, formatNumber } from '@/lib/utils'
 
-export default function DashboardPage() {
+export default function ResearchDashboard() {
   const [metrics, setMetrics] = useState<any>(null)
-  const [studies, setStudies] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -32,12 +38,17 @@ export default function DashboardPage() {
 
   const loadDashboardData = async () => {
     try {
-      const [metricsData, studiesData] = await Promise.all([
-        apiClient.getSystemMetrics().catch(() => ({})),
-        apiClient.getStudies({ limit: 5 }).catch(() => ({ items: [] }))
-      ])
+      const metricsData = await apiClient.getSystemMetrics().catch(() => ({
+        totalStudies: 1248,
+        activeUsers: 156,
+        mlInferences: 892,
+        storageUsed: 245678901234,
+        studiesThisWeek: 87,
+        aiAnalysisRate: 71.2,
+        avgProcessingTime: 45,
+        activeResearchers: 23
+      }))
       setMetrics(metricsData)
-      setStudies(studiesData.items || [])
     } catch (error) {
       console.error('Error loading dashboard:', error)
     } finally {
@@ -45,102 +56,154 @@ export default function DashboardPage() {
     }
   }
 
-  const stats = [
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-slate-50 dark:bg-slate-900">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
+          <p className="text-slate-600 dark:text-slate-400">Loading research platform...</p>
+        </div>
+      </div>
+    )
+  }
+
+  const keyMetrics = [
     {
       title: 'Total Studies',
       value: formatNumber(metrics?.totalStudies || 1248),
-      change: '+12.5%',
+      change: '+12.5% from last month',
+      changeType: 'positive' as const,
       icon: Database,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-50'
+      trend: [45, 52, 48, 61, 58, 71, 69, 78, 82, 89, 95, 101]
     },
     {
-      title: 'Active Users',
-      value: formatNumber(metrics?.activeUsers || 156),
-      change: '+5.2%',
+      title: 'Active Researchers',
+      value: formatNumber(metrics?.activeResearchers || 23),
+      change: '+3 this week',
+      changeType: 'positive' as const,
       icon: Users,
-      color: 'text-green-600',
-      bgColor: 'bg-green-50'
+      trend: [18, 19, 20, 21, 19, 22, 21, 23, 22, 23, 24, 23]
     },
     {
-      title: 'ML Inferences',
+      title: 'AI Inferences',
       value: formatNumber(metrics?.mlInferences || 892),
-      change: '+23.1%',
+      change: '+23.1% this week',
+      changeType: 'positive' as const,
       icon: Brain,
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-50'
+      trend: [450, 520, 580, 640, 690, 720, 760, 800, 820, 850, 870, 892]
     },
     {
-      title: 'Storage Used',
-      value: formatBytes(metrics?.storageUsed || 245678901234),
-      change: formatBytes(metrics?.storageTotal || 500000000000) + ' total',
-      icon: Database,
-      color: 'text-orange-600',
-      bgColor: 'bg-orange-50'
+      title: 'Processing Rate',
+      value: `${metrics?.aiAnalysisRate || 71.2}%`,
+      change: '+5.3% improvement',
+      changeType: 'positive' as const,
+      icon: Zap,
+      description: 'AI analysis coverage',
+      trend: [55, 58, 61, 63, 65, 67, 68, 69, 70, 71, 71, 71.2]
     }
   ]
 
   const recentActivities = [
     {
       type: 'upload',
-      message: 'New CT study uploaded for Patient #12345',
+      title: 'New CT Study Uploaded',
+      description: 'Chest CT with Contrast - Patient #45782',
       time: '2 minutes ago',
       icon: Upload,
-      color: 'text-blue-600'
+      iconColor: 'text-blue-600',
+      iconBg: 'bg-blue-50'
     },
     {
-      type: 'inference',
-      message: 'Lung nodule detection completed',
+      type: 'analysis',
+      title: 'AI Analysis Completed',
+      description: 'Lung nodule detection - 3 findings identified',
       time: '5 minutes ago',
       icon: Brain,
-      color: 'text-purple-600'
+      iconColor: 'text-purple-600',
+      iconBg: 'bg-purple-50'
     },
     {
-      type: 'download',
-      message: 'Study #8901 downloaded by Dr. Smith',
+      type: 'research',
+      title: 'Research Dataset Updated',
+      description: 'Cancer detection cohort - 45 new annotations',
       time: '12 minutes ago',
-      icon: Download,
-      color: 'text-green-600'
+      icon: Beaker,
+      iconColor: 'text-green-600',
+      iconBg: 'bg-green-50'
+    },
+    {
+      type: 'collaboration',
+      title: 'Collaboration Invitation',
+      description: 'Dr. Smith invited you to "Brain Tumor Research"',
+      time: '18 minutes ago',
+      icon: Users,
+      iconColor: 'text-orange-600',
+      iconBg: 'bg-orange-50'
     },
     {
       type: 'alert',
-      message: 'High priority worklist item assigned',
-      time: '18 minutes ago',
-      icon: AlertCircle,
-      color: 'text-red-600'
+      title: 'Quality Check Alert',
+      description: 'Study #STD-2024-089 requires review',
+      time: '25 minutes ago',
+      icon: AlertTriangle,
+      iconColor: 'text-red-600',
+      iconBg: 'bg-red-50'
     }
   ]
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
-    )
-  }
+  const quickActions = [
+    {
+      title: 'Upload DICOM Study',
+      description: 'Import medical imaging studies',
+      icon: Upload,
+      color: 'bg-blue-500 hover:bg-blue-600',
+      href: '/upload'
+    },
+    {
+      title: 'Run AI Analysis',
+      description: 'Analyze studies with ML models',
+      icon: Brain,
+      color: 'bg-purple-500 hover:bg-purple-600',
+      href: '/ml'
+    },
+    {
+      title: 'View Studies',
+      description: 'Browse and search DICOM studies',
+      icon: Microscope,
+      color: 'bg-green-500 hover:bg-green-600',
+      href: '/studies'
+    },
+    {
+      title: 'Create Dataset',
+      description: 'Build research cohorts',
+      icon: Beaker,
+      color: 'bg-orange-500 hover:bg-orange-600',
+      href: '/research/datasets'
+    }
+  ]
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-slate-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
       {/* Header */}
-      <header className="bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <Activity className="h-8 w-8 text-primary" />
-                <h1 className="text-2xl font-bold text-slate-900 dark:text-white">
-                  Aurelius Platform
-                </h1>
-              </div>
+      <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg border-b border-slate-200 dark:border-slate-700 sticky top-0 z-40">
+        <div className="mx-auto px-6 py-4">
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-blue-600 bg-clip-text text-transparent">
+                Research Dashboard
+              </h1>
+              <p className="text-slate-600 dark:text-slate-400 mt-1">
+                Welcome back, Dr. Johnson - {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+              </p>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center gap-3">
               <Button variant="outline" size="sm">
+                <Download className="h-4 w-4 mr-2" />
+                Export Data
+              </Button>
+              <Button size="sm" className="bg-gradient-to-r from-primary to-blue-600 hover:from-primary/90 hover:to-blue-600/90">
                 <Upload className="h-4 w-4 mr-2" />
                 Upload Study
-              </Button>
-              <Button size="sm">
-                <Brain className="h-4 w-4 mr-2" />
-                Run Inference
               </Button>
             </div>
           </div>
@@ -148,197 +211,245 @@ export default function DashboardPage() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Welcome Section */}
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-slate-900 dark:text-white mb-2">
-            Welcome back, Dr. Johnson
-          </h2>
-          <p className="text-slate-600 dark:text-slate-400">
-            Here's what's happening with your medical imaging platform today
-          </p>
-        </div>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {stats.map((stat, index) => (
-            <Card key={index} className="hover:shadow-lg transition-shadow">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
-                      {stat.title}
-                    </p>
-                    <h3 className="text-2xl font-bold text-slate-900 dark:text-white mt-2">
-                      {stat.value}
-                    </h3>
-                    <p className="text-sm text-green-600 mt-1">{stat.change}</p>
-                  </div>
-                  <div className={`${stat.bgColor} p-3 rounded-lg`}>
-                    <stat.icon className={`h-6 w-6 ${stat.color}`} />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        {/* Main Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Recent Studies */}
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle>Recent Studies</CardTitle>
-              <CardDescription>Latest medical imaging studies uploaded</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {[
-                  {
-                    id: 'STD-001',
-                    patient: 'John Doe',
-                    modality: 'CT',
-                    date: '2024-10-27',
-                    status: 'completed',
-                    series: 12
-                  },
-                  {
-                    id: 'STD-002',
-                    patient: 'Jane Smith',
-                    modality: 'MRI',
-                    date: '2024-10-27',
-                    status: 'processing',
-                    series: 8
-                  },
-                  {
-                    id: 'STD-003',
-                    patient: 'Bob Johnson',
-                    modality: 'X-Ray',
-                    date: '2024-10-26',
-                    status: 'completed',
-                    series: 2
-                  }
-                ].map((study) => (
-                  <div
-                    key={study.id}
-                    className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors cursor-pointer"
-                  >
-                    <div className="flex items-center space-x-4">
-                      <div className="h-12 w-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                        <FileText className="h-6 w-6 text-primary" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-slate-900 dark:text-white">
-                          {study.patient}
-                        </p>
-                        <p className="text-sm text-slate-600 dark:text-slate-400">
-                          {study.modality} • {study.series} series • {study.date}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      {study.status === 'completed' ? (
-                        <CheckCircle className="h-5 w-5 text-green-600" />
-                      ) : (
-                        <Clock className="h-5 w-5 text-yellow-600" />
-                      )}
-                      <Button variant="ghost" size="sm">View</Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-6">
-                <Button variant="outline" className="w-full">
-                  View All Studies
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Recent Activity */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Activity</CardTitle>
-              <CardDescription>Latest platform activities</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {recentActivities.map((activity, index) => (
-                  <div key={index} className="flex items-start space-x-3">
-                    <div className={`${activity.color} bg-slate-50 dark:bg-slate-800 p-2 rounded-lg`}>
-                      <activity.icon className="h-4 w-4" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm text-slate-900 dark:text-white">
-                        {activity.message}
-                      </p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                        {activity.time}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+      <main className="mx-auto px-6 py-8 space-y-8">
+        {/* Key Metrics */}
+        <section>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-2xl font-bold text-slate-900 dark:text-white">
+              Key Performance Indicators
+            </h2>
+            <div className="flex items-center gap-2">
+              <Badge variant="outline" className="text-green-600 border-green-600">
+                <Activity className="h-3 w-3 mr-1" />
+                All Systems Operational
+              </Badge>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {keyMetrics.map((metric, index) => (
+              <MetricsCard key={index} {...metric} />
+            ))}
+          </div>
+        </section>
 
         {/* Quick Actions */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-            <CardContent className="pt-6">
-              <div className="flex items-center space-x-4">
-                <div className="bg-blue-50 p-3 rounded-lg">
-                  <Upload className="h-6 w-6 text-blue-600" />
+        <section>
+          <h2 className="text-2xl font-bold text-slate-900 dark:text-white mb-6">
+            Quick Actions
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {quickActions.map((action, index) => (
+              <Card
+                key={index}
+                className="group cursor-pointer hover:shadow-xl transition-all duration-300 border-0 overflow-hidden"
+              >
+                <div className={`h-2 ${action.color.split(' ')[0]}`} />
+                <CardContent className="pt-6">
+                  <div className="flex items-start gap-4">
+                    <div className={`p-3 rounded-xl ${action.color} text-white transition-transform group-hover:scale-110`}>
+                      <action.icon className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-slate-900 dark:text-white mb-1">
+                        {action.title}
+                      </h3>
+                      <p className="text-sm text-slate-600 dark:text-slate-400">
+                        {action.description}
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+
+        {/* Main Content Tabs */}
+        <section>
+          <Tabs defaultValue="studies" className="space-y-6">
+            <TabsList className="grid w-full grid-cols-3 lg:w-[600px]">
+              <TabsTrigger value="studies" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Recent Studies
+              </TabsTrigger>
+              <TabsTrigger value="analytics" className="flex items-center gap-2">
+                <TrendingUp className="h-4 w-4" />
+                Analytics
+              </TabsTrigger>
+              <TabsTrigger value="activity" className="flex items-center gap-2">
+                <Activity className="h-4 w-4" />
+                Activity Feed
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="studies" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Recent Research Studies</CardTitle>
+                  <CardDescription>
+                    Latest DICOM studies uploaded to the platform with AI analysis status
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <StudyTable />
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="analytics" className="space-y-4">
+              <ResearchAnalytics />
+            </TabsContent>
+
+            <TabsContent value="activity" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Platform Activity Stream</CardTitle>
+                  <CardDescription>
+                    Real-time updates from across the research platform
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {recentActivities.map((activity, index) => (
+                      <div
+                        key={index}
+                        className="flex items-start gap-4 p-4 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
+                      >
+                        <div className={`${activity.iconBg} p-3 rounded-lg`}>
+                          <activity.icon className={`h-5 w-5 ${activity.iconColor}`} />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <h4 className="font-semibold text-slate-900 dark:text-white">
+                                {activity.title}
+                              </h4>
+                              <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                                {activity.description}
+                              </p>
+                            </div>
+                            <span className="text-xs text-slate-500 whitespace-nowrap ml-4">
+                              {activity.time}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
+        </section>
+
+        {/* Bottom Grid */}
+        <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* System Health */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="h-5 w-5 text-green-600" />
+                System Health
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {[
+                { service: 'Gateway API', status: 'operational', uptime: '99.9%' },
+                { service: 'DICOM Server', status: 'operational', uptime: '99.8%' },
+                { service: 'ML Service', status: 'operational', uptime: '99.7%' },
+                { service: 'Database', status: 'operational', uptime: '99.9%' }
+              ].map((item, index) => (
+                <div key={index} className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    <span className="text-sm text-slate-700 dark:text-slate-300">
+                      {item.service}
+                    </span>
+                  </div>
+                  <Badge variant="success" className="text-xs">
+                    {item.uptime}
+                  </Badge>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+
+          {/* Storage Usage */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Storage Usage</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                <div>
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="text-slate-600 dark:text-slate-400">DICOM Studies</span>
+                    <span className="font-medium">186 GB</span>
+                  </div>
+                  <div className="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div className="h-full bg-blue-500" style={{ width: '62%' }} />
+                  </div>
                 </div>
                 <div>
-                  <h3 className="font-semibold text-slate-900 dark:text-white">
-                    Upload DICOM
-                  </h3>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">
-                    Import medical images
-                  </p>
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="text-slate-600 dark:text-slate-400">ML Models</span>
+                    <span className="font-medium">42 GB</span>
+                  </div>
+                  <div className="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div className="h-full bg-purple-500" style={{ width: '28%' }} />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="text-slate-600 dark:text-slate-400">Research Data</span>
+                    <span className="font-medium">28 GB</span>
+                  </div>
+                  <div className="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div className="h-full bg-green-500" style={{ width: '18%' }} />
+                  </div>
+                </div>
+                <div className="pt-4 border-t border-slate-200 dark:border-slate-700">
+                  <div className="flex justify-between">
+                    <span className="text-sm font-medium">Total Used</span>
+                    <span className="font-bold">256 GB / 500 GB</span>
+                  </div>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-            <CardContent className="pt-6">
-              <div className="flex items-center space-x-4">
-                <div className="bg-purple-50 p-3 rounded-lg">
-                  <Brain className="h-6 w-6 text-purple-600" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-slate-900 dark:text-white">
-                    AI Analysis
-                  </h3>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">
-                    Run ML inference
-                  </p>
-                </div>
+          {/* Active Tasks */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Clock className="h-5 w-5 text-blue-600" />
+                Active Tasks
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {[
+                  { task: 'AI Model Training', progress: 67, status: 'running' },
+                  { task: 'DICOM Processing Queue', progress: 89, status: 'running' },
+                  { task: 'Dataset Generation', progress: 34, status: 'running' }
+                ].map((item, index) => (
+                  <div key={index} className="space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-slate-700 dark:text-slate-300">{item.task}</span>
+                      <span className="text-slate-500">{item.progress}%</span>
+                    </div>
+                    <div className="h-2 bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-blue-500 transition-all duration-500 rounded-full"
+                        style={{ width: `${item.progress}%` }}
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
             </CardContent>
           </Card>
-
-          <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-            <CardContent className="pt-6">
-              <div className="flex items-center space-x-4">
-                <div className="bg-green-50 p-3 rounded-lg">
-                  <TrendingUp className="h-6 w-6 text-green-600" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-slate-900 dark:text-white">
-                    View Analytics
-                  </h3>
-                  <p className="text-sm text-slate-600 dark:text-slate-400">
-                    Platform metrics
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
+        </section>
       </main>
     </div>
   )
