@@ -43,21 +43,21 @@ const navigation = [
     badge: null
   },
   {
-    name: 'AI & ML',
-    href: '/ml',
-    icon: Brain,
-    badge: 'New'
-  },
-  {
     name: 'Cancer AI',
     href: '/cancer-ai',
     icon: Activity,
-    badge: 'Beta'
+    badge: 'Multimodal'
   },
   {
-    name: 'Research',
-    href: '/research',
-    icon: Beaker,
+    name: 'Histopathology',
+    href: '/histopathology',
+    icon: Microscope,
+    badge: 'Research'
+  },
+  {
+    name: 'AI & ML',
+    href: '/ml',
+    icon: Brain,
     badge: null
   },
   {
@@ -77,12 +77,6 @@ const navigation = [
     href: '/worklists',
     icon: FileText,
     badge: '12'
-  },
-  {
-    name: 'Collaborations',
-    href: '/collaborations',
-    icon: Users,
-    badge: '3'
   },
   {
     name: 'Publications',
