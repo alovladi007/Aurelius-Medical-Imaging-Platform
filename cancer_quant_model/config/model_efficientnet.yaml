@@ -1,0 +1,80 @@
+# EfficientNet Model Configuration
+
+model:
+  name: "efficientnet_classifier"
+  backbone: "efficientnet_b3"  # Options: efficientnet_b0, b1, b2, b3, b4, b5, b6, b7
+  pretrained: true
+  num_classes: 2
+
+  # Backbone settings
+  freeze_backbone: false
+  freeze_layers: 0  # Number of initial layers to freeze (0 = none)
+
+  # Classification head
+  head:
+    dropout: 0.4
+    hidden_dims: [512, 256]  # Optional hidden layers before final classification
+    activation: "relu"
+    use_batch_norm: true
+
+# Optimizer configuration
+optimizer:
+  name: "adamw"
+  lr: 1e-4
+  weight_decay: 1e-5
+  betas: [0.9, 0.999]
+  eps: 1e-8
+
+# Learning rate scheduler
+scheduler:
+  name: "cosine"
+  T_max: 50
+  eta_min: 1e-7
+  mode: "max"
+  factor: 0.5
+  patience: 7
+  min_lr: 1e-8
+
+# Loss configuration
+loss:
+  name: "cross_entropy"
+  label_smoothing: 0.1
+  class_weights: null
+
+# Training hyperparameters
+training:
+  batch_size: 24
+  num_epochs: 50
+  num_workers: 4
+  pin_memory: true
+  use_amp: true
+  gradient_clip_val: 1.0
+  gradient_clip_algorithm: "norm"
+  accumulate_grad_batches: 1
+
+# Validation and checkpointing
+validation:
+  val_check_interval: 1.0
+  limit_val_batches: 1.0
+
+early_stopping:
+  monitor: "val_auc"
+  mode: "max"
+  patience: 12
+  min_delta: 0.001
+
+checkpoint:
+  monitor: "val_auc"
+  mode: "max"
+  save_top_k: 3
+  save_last: true
+  dirpath: "experiments/logs/efficientnet"
+  filename: "efficientnet-{epoch:02d}-{val_auc:.3f}"
+
+# Experiment tracking
+mlflow:
+  experiment_name: "cancer_histopathology_efficientnet"
+  tracking_uri: "experiments/mlruns"
+  tags:
+    model_type: "efficientnet_b3"
+    task: "binary_classification"

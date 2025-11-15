@@ -1,0 +1,107 @@
+# Default Training Configuration
+
+# Random seed for reproducibility
+seed: 42
+
+# Device settings
+device: "auto"  # "auto", "cuda", "cpu", or "cuda:0", "cuda:1", etc.
+
+# Data augmentation
+augmentation:
+  train:
+    enabled: true
+    # Geometric transforms
+    horizontal_flip: 0.5
+    vertical_flip: 0.5
+    rotate_limit: 90
+    shift_limit: 0.1
+    scale_limit: 0.1
+
+    # Color transforms
+    brightness_limit: 0.2
+    contrast_limit: 0.2
+    hue_shift_limit: 10
+    sat_shift_limit: 20
+
+    # Advanced augmentations
+    elastic_transform: false
+    grid_distortion: false
+    optical_distortion: false
+
+    # Stain normalization (for histopathology)
+    stain_augmentation: true
+
+  val:
+    enabled: false
+
+# Image preprocessing
+preprocessing:
+  resize_size: 256
+  crop_size: 224
+  normalize: true
+  # ImageNet statistics (adjust if using domain-specific normalization)
+  mean: [0.485, 0.456, 0.406]
+  std: [0.229, 0.224, 0.225]
+
+# Training loop settings
+training:
+  max_epochs: 50
+  log_every_n_steps: 10
+  val_check_interval: 1.0
+
+  # Profiling (set to 0 to disable)
+  profiler: null  # "simple", "advanced", or null
+
+  # Debugging
+  fast_dev_run: false  # Run 1 batch for debugging
+  overfit_batches: 0  # Overfit on N batches for debugging
+  limit_train_batches: 1.0
+  limit_val_batches: 1.0
+
+  # Performance
+  benchmark: true  # cudnn.benchmark for faster training
+  deterministic: false  # Set to true for full reproducibility (slower)
+
+# Metrics to track
+metrics:
+  # Classification metrics
+  - accuracy
+  - precision
+  - recall
+  - f1_score
+  - auc_roc
+  - auc_pr
+  - confusion_matrix
+
+  # Calibration
+  - brier_score
+
+  # Per-class metrics
+  compute_per_class: true
+
+# Logging settings
+logging:
+  log_dir: "experiments/logs"
+  save_dir: "experiments/logs"
+  log_model: true
+  log_gradients: false
+  log_weights: false
+
+  # Console logging
+  progress_bar: true
+  verbose: true
+
+# Resume training
+resume:
+  enabled: false
+  checkpoint_path: null
+  reset_optimizer: false
+  reset_scheduler: false
+  reset_epoch: false
+
+# Distributed training (future support)
+distributed:
+  enabled: false
+  strategy: "ddp"  # "ddp", "ddp_spawn", "deepspeed"
+  num_nodes: 1
+  num_gpus: 1

@@ -1,0 +1,63 @@
+# Dataset Configuration for Cancer Histopathology
+
+# Dataset type: "folder_binary" or "csv_labels"
+# - folder_binary: expects data/raw/train/0/ and data/raw/train/1/ structure
+# - csv_labels: expects data/raw/images/ and data/raw/labels.csv
+dataset_type: "folder_binary"
+
+# Paths
+data_root: "data/raw"
+processed_root: "data/processed"
+splits_root: "data/splits"
+
+# For folder_binary type
+folder_structure:
+  train_dir: "data/raw/train"
+  val_dir: "data/raw/val"  # optional, if not provided, will split from train
+  test_dir: "data/raw/test"  # optional, if not provided, will split from train
+
+# For csv_labels type
+csv_structure:
+  image_dir: "data/raw/images"
+  csv_path: "data/raw/labels.csv"
+  image_id_column: "image_id"
+  label_column: "label"
+  # Optional metadata columns to include
+  metadata_columns: []
+
+# Image settings
+image_settings:
+  # Target size for resizing
+  target_size: 224
+  # File extensions to consider
+  extensions: [".png", ".jpg", ".jpeg", ".tif", ".tiff"]
+  # Whether to create tiles from large images
+  create_tiles: false
+  tile_size: 512
+  tile_overlap: 0
+  # Minimum image dimensions to keep
+  min_image_size: 50
+
+# Split configuration
+split:
+  # If val_dir/test_dir not provided, use these ratios
+  train_ratio: 0.7
+  val_ratio: 0.15
+  test_ratio: 0.15
+  # Stratify by label
+  stratify: true
+  # Random seed for reproducibility
+  seed: 42
+
+# Class configuration
+classes:
+  num_classes: 2
+  class_names: ["non_cancer", "cancer"]
+  # Optional: class weights for imbalanced datasets (auto-compute if null)
+  class_weights: null
+
+# Data quality checks
+quality_checks:
+  check_corrupted_images: true
+  remove_duplicates: true
+  min_samples_per_class: 10

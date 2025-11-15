@@ -1,0 +1,94 @@
+# ResNet Model Configuration
+
+model:
+  name: "resnet_classifier"
+  backbone: "resnet50"
+  pretrained: true
+  num_classes: 2
+
+  # Backbone settings
+  freeze_backbone: false
+  freeze_layers: 0  # Number of initial layers to freeze (0 = none)
+
+  # Classification head
+  head:
+    dropout: 0.3
+    hidden_dims: [512]  # Optional hidden layers before final classification
+    activation: "relu"
+    use_batch_norm: true
+
+# Optimizer configuration
+optimizer:
+  name: "adamw"
+  lr: 3e-4
+  weight_decay: 1e-4
+  betas: [0.9, 0.999]
+  eps: 1e-8
+
+# Learning rate scheduler
+scheduler:
+  name: "cosine"
+  # For cosine annealing
+  T_max: 50
+  eta_min: 1e-6
+  # For step LR
+  step_size: 10
+  gamma: 0.1
+  # For reduce on plateau
+  mode: "max"
+  factor: 0.5
+  patience: 5
+  min_lr: 1e-7
+
+# Loss configuration
+loss:
+  name: "cross_entropy"
+  label_smoothing: 0.1
+  # For weighted loss (computed automatically if null)
+  class_weights: null
+
+# Training hyperparameters
+training:
+  batch_size: 32
+  num_epochs: 50
+  num_workers: 4
+  pin_memory: true
+
+  # Mixed precision training
+  use_amp: true
+
+  # Gradient clipping
+  gradient_clip_val: 1.0
+  gradient_clip_algorithm: "norm"
+
+  # Accumulate gradients
+  accumulate_grad_batches: 1
+
+# Validation and checkpointing
+validation:
+  val_check_interval: 1.0  # Check every epoch
+  limit_val_batches: 1.0
+
+# Early stopping
+early_stopping:
+  monitor: "val_auc"
+  mode: "max"
+  patience: 10
+  min_delta: 0.001
+
+# Checkpointing
+checkpoint:
+  monitor: "val_auc"
+  mode: "max"
+  save_top_k: 3
+  save_last: true
+  dirpath: "experiments/logs/resnet"
+  filename: "resnet-{epoch:02d}-{val_auc:.3f}"
+
+# Experiment tracking
+mlflow:
+  experiment_name: "cancer_histopathology_resnet"
+  tracking_uri: "experiments/mlruns"
+  tags:
+    model_type: "resnet50"
+    task: "binary_classification"

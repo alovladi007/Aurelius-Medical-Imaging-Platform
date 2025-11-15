@@ -1,0 +1,78 @@
+# Vision Transformer (ViT) Model Configuration
+
+model:
+  name: "vit_classifier"
+  backbone: "vit_base_patch16_224"  # Options: vit_tiny, vit_small, vit_base, vit_large
+  pretrained: true
+  num_classes: 2
+
+  # Backbone settings
+  freeze_backbone: false
+  freeze_layers: 0
+
+  # Classification head
+  head:
+    dropout: 0.2
+    hidden_dims: [384]
+    activation: "gelu"
+    use_batch_norm: false  # ViT typically uses LayerNorm
+
+# Optimizer configuration
+optimizer:
+  name: "adamw"
+  lr: 5e-5
+  weight_decay: 0.05
+  betas: [0.9, 0.999]
+  eps: 1e-8
+
+# Learning rate scheduler
+scheduler:
+  name: "cosine"
+  T_max: 50
+  eta_min: 1e-7
+  warmup_epochs: 5
+  warmup_lr: 1e-6
+
+# Loss configuration
+loss:
+  name: "cross_entropy"
+  label_smoothing: 0.1
+  class_weights: null
+
+# Training hyperparameters
+training:
+  batch_size: 16  # ViT requires more memory
+  num_epochs: 50
+  num_workers: 4
+  pin_memory: true
+  use_amp: true
+  gradient_clip_val: 1.0
+  gradient_clip_algorithm: "norm"
+  accumulate_grad_batches: 2  # Effective batch size = 32
+
+# Validation and checkpointing
+validation:
+  val_check_interval: 1.0
+  limit_val_batches: 1.0
+
+early_stopping:
+  monitor: "val_auc"
+  mode: "max"
+  patience: 15
+  min_delta: 0.001
+
+checkpoint:
+  monitor: "val_auc"
+  mode: "max"
+  save_top_k: 3
+  save_last: true
+  dirpath: "experiments/logs/vit"
+  filename: "vit-{epoch:02d}-{val_auc:.3f}"
+
+# Experiment tracking
+mlflow:
+  experiment_name: "cancer_histopathology_vit"
+  tracking_uri: "experiments/mlruns"
+  tags:
+    model_type: "vit_base_patch16_224"
+    task: "binary_classification"

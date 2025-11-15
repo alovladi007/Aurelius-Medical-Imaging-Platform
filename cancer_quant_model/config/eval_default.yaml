@@ -1,0 +1,90 @@
+# Default Evaluation Configuration
+
+# Model checkpoint to evaluate
+checkpoint:
+  path: null  # Will be provided via CLI
+  load_best: true  # Load best checkpoint instead of last
+
+# Evaluation settings
+evaluation:
+  batch_size: 32
+  num_workers: 4
+
+  # Which split to evaluate
+  split: "test"  # "train", "val", or "test"
+
+  # Device
+  device: "auto"
+
+# Metrics to compute
+metrics:
+  # Standard classification metrics
+  - accuracy
+  - precision
+  - recall
+  - f1_score
+  - auc_roc
+  - auc_pr
+  - confusion_matrix
+  - classification_report
+
+  # Calibration metrics
+  - brier_score
+  - expected_calibration_error
+
+  # Per-class metrics
+  compute_per_class: true
+
+  # Threshold tuning
+  optimize_threshold: true
+  threshold_metric: "f1_score"  # Metric to optimize for threshold
+
+# Predictions output
+save_predictions:
+  enabled: true
+  output_dir: "experiments/logs/predictions"
+  format: "csv"  # "csv" or "parquet"
+  include_probabilities: true
+  include_features: false  # Save deep features
+
+# Visualization
+visualizations:
+  enabled: true
+  output_dir: "experiments/logs/visualizations"
+
+  plots:
+    - confusion_matrix
+    - roc_curve
+    - precision_recall_curve
+    - calibration_curve
+    - prediction_distribution
+
+  # Per-class ROC curves
+  plot_per_class_roc: true
+
+  # Sample predictions (for error analysis)
+  save_sample_predictions:
+    enabled: true
+    num_samples: 50
+    stratify_by: "prediction_correctness"  # "random", "prediction_correctness", "confidence"
+
+# Error analysis
+error_analysis:
+  enabled: true
+
+  # Find most confident errors
+  analyze_confident_errors: true
+  confidence_threshold: 0.9
+
+  # Find uncertain predictions
+  analyze_uncertain: true
+  uncertainty_threshold: 0.6
+
+# MLflow logging
+mlflow:
+  enabled: true
+  tracking_uri: "experiments/mlruns"
+  log_to_run: null  # Specific run ID, or null to create new run
+
+# Reproducibility
+seed: 42
