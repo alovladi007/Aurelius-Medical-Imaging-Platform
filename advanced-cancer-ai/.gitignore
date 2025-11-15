@@ -1,0 +1,88 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyTorch
+*.pth
+*.pt
+*.onnx
+checkpoints/
+*.pkl
+
+# Data
+data/
+datasets/
+*.dcm
+*.nii
+*.nii.gz
+
+# Models
+models/
+*.h5
+*.hdf5
+
+# Logs
+logs/
+*.log
+wandb/
+tensorboard/
+
+# Jupyter
+.ipynb_checkpoints
+*.ipynb
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Environment
+.env
+.env.local
+*.env
+
+# Output
+output/
+visualizations/
+results/
+experiments/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Frontend (already covered in frontend/.gitignore)
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+
+# Docker
+*.log
+docker-compose.override.yml
