@@ -13,7 +13,8 @@ import {
   FileText,
   BarChart3,
   Microscope,
-  Beaker,
+  Flask,
+  FlaskConical,
   BookOpen,
   Bell,
   ChevronLeft,
@@ -53,6 +54,12 @@ const navigation = [
     href: '/histopathology',
     icon: Microscope,
     badge: 'Research'
+  },
+  {
+    name: 'PROMETHEUS',
+    href: '/prometheus',
+    icon: FlaskConical,
+    badge: 'AGI'
   },
   {
     name: 'AI & ML',

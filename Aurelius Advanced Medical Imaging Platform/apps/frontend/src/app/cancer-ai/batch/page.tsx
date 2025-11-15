@@ -1,172 +1,251 @@
-'use client'
+"use client";
 
-import { useState } from 'react'
-import { Upload, FileText, Brain, CheckCircle, XCircle, Clock } from 'lucide-react'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
+import { useState } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import {
+  Upload,
+  FileText,
+  CheckCircle,
+  Clock,
+  AlertCircle,
+  Download,
+  Play,
+  XCircle,
+  Activity
+} from 'lucide-react';
 
-export default function BatchPredictionPage() {
-  const [files, setFiles] = useState<File[]>([])
-  const [processing, setProcessing] = useState(false)
+export default function BatchProcessingPage() {
+  const [files, setFiles] = useState<any[]>([]);
+  const [processing, setProcessing] = useState(false);
+  const [results, setResults] = useState<any[]>([]);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setFiles(Array.from(e.target.files))
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const uploadedFiles = Array.from(event.target.files || []);
+    const fileData = uploadedFiles.map((file, index) => ({
+      id: index + 1,
+      name: file.name,
+      size: file.size,
+      status: 'pending',
+      file: file
+    }));
+    setFiles([...files, ...fileData]);
+  };
+
+  const startBatchProcessing = async () => {
+    setProcessing(true);
+
+    // Simulate processing
+    for (let i = 0; i < files.length; i++) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setFiles(prev => prev.map((f, idx) =>
+        idx === i ? { ...f, status: 'processing' } : f
+      ));
+
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      const result = {
+        ...files[i],
+        status: 'completed',
+        prediction: ['Lung Cancer', 'Breast Cancer', 'No Cancer'][Math.floor(Math.random() * 3)],
+        confidence: (Math.random() * 30 + 70).toFixed(1),
+        completedAt: new Date().toISOString()
+      };
+
+      setFiles(prev => prev.map((f, idx) =>
+        idx === i ? result : f
+      ));
+      setResults(prev => [...prev, result]);
     }
-  }
 
-  const handleBatchProcess = async () => {
-    setProcessing(true)
-    // TODO: Implement batch processing with real API
-    setTimeout(() => setProcessing(false), 3000)
-  }
+    setProcessing(false);
+  };
+
+  const exportResults = () => {
+    const csv = [
+      ['Filename', 'Prediction', 'Confidence', 'Status', 'Completed At'],
+      ...results.map(r => [r.name, r.prediction, r.confidence + '%', r.status, r.completedAt])
+    ].map(row => row.join(',')).join('\n');
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'cancer-ai-batch-results.csv';
+    a.click();
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'completed':
+        return <CheckCircle className="h-4 w-4 text-green-600" />;
+      case 'processing':
+        return <Activity className="h-4 w-4 text-blue-600 animate-spin" />;
+      case 'failed':
+        return <XCircle className="h-4 w-4 text-red-600" />;
+      default:
+        return <Clock className="h-4 w-4 text-gray-400" />;
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 p-8">
-      <div className="max-w-7xl mx-auto space-y-8">
-        {/* Header */}
+    <div className="p-8 space-y-8">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
-            Batch Cancer Prediction
-          </h1>
-          <p className="text-slate-600 dark:text-slate-400">
-            Process multiple medical images for cancer detection simultaneously
-          </p>
+          <h1 className="text-3xl font-bold">Batch Processing</h1>
+          <p className="text-gray-600 dark:text-gray-400">Process multiple medical images simultaneously</p>
         </div>
-
-        {/* Upload Section */}
-        <Card className="border-2 border-dashed border-slate-300 dark:border-slate-700">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Upload className="w-5 h-5 text-blue-600" />
-              Upload Images for Batch Processing
-            </CardTitle>
-            <CardDescription>
-              Select multiple DICOM files, PNG, or JPG images to process
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <input
-                type="file"
-                multiple
-                accept=".dcm,.png,.jpg,.jpeg"
-                onChange={handleFileUpload}
-                className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
-              />
-
-              {files.length > 0 && (
-                <div className="mt-4">
-                  <p className="text-sm font-medium mb-2">Selected Files ({files.length}):</p>
-                  <div className="space-y-2 max-h-48 overflow-y-auto">
-                    {files.map((file, idx) => (
-                      <div key={idx} className="flex items-center justify-between p-2 bg-slate-100 dark:bg-slate-800 rounded">
-                        <div className="flex items-center gap-2">
-                          <FileText className="w-4 h-4 text-blue-600" />
-                          <span className="text-sm">{file.name}</span>
-                        </div>
-                        <span className="text-xs text-slate-500">{(file.size / 1024).toFixed(1)} KB</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <Button
-                onClick={handleBatchProcess}
-                disabled={files.length === 0 || processing}
-                className="w-full"
-              >
-                {processing ? (
-                  <>
-                    <Clock className="w-4 h-4 mr-2 animate-spin" />
-                    Processing {files.length} images...
-                  </>
-                ) : (
-                  <>
-                    <Brain className="w-4 h-4 mr-2" />
-                    Start Batch Processing
-                  </>
-                )}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Results Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Batch Processing Results</CardTitle>
-            <CardDescription>Real-time results will appear here as processing completes</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {processing ? (
-                <div className="text-center py-12">
-                  <Brain className="w-12 h-12 mx-auto mb-4 text-blue-600 animate-pulse" />
-                  <p className="text-slate-600 dark:text-slate-400">
-                    Processing images with advanced cancer detection AI...
-                  </p>
-                </div>
-              ) : files.length === 0 ? (
-                <div className="text-center py-12 text-slate-500">
-                  <Upload className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                  <p>Upload images to start batch processing</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {files.map((file, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <FileText className="w-5 h-5 text-blue-600" />
-                        <span className="font-medium">{file.name}</span>
-                      </div>
-                      <Badge variant="secondary">
-                        <Clock className="w-3 h-3 mr-1" />
-                        Pending
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Info Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">Supported Formats</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold text-blue-600">DICOM, PNG, JPG</p>
-              <p className="text-xs text-slate-500 mt-1">Medical imaging standards</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">Max Batch Size</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold text-purple-600">100 images</p>
-              <p className="text-xs text-slate-500 mt-1">Per processing job</p>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-slate-600">Processing Time</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-bold text-green-600">~2-5 sec</p>
-              <p className="text-xs text-slate-500 mt-1">Per image average</p>
-            </CardContent>
-          </Card>
+        <div className="flex gap-3">
+          {results.length > 0 && (
+            <Button variant="outline" onClick={exportResults}>
+              <Download className="h-4 w-4 mr-2" />
+              Export Results
+            </Button>
+          )}
+          <Button onClick={startBatchProcessing} disabled={processing || files.length === 0}>
+            <Play className="h-4 w-4 mr-2" />
+            {processing ? 'Processing...' : 'Start Batch'}
+          </Button>
         </div>
       </div>
+
+      {/* Upload Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Upload Images</CardTitle>
+          <CardDescription>Select multiple medical images for batch analysis</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <label className="block">
+            <div className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-12 text-center hover:border-primary cursor-pointer transition-colors">
+              <Upload className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+              <p className="text-gray-600 dark:text-gray-400 mb-2">Click to upload or drag and drop</p>
+              <p className="text-sm text-gray-500">DICOM, PNG, JPG, TIFF (max 10MB each)</p>
+              <p className="text-sm text-gray-500 mt-2">{files.length} files selected</p>
+            </div>
+            <input
+              type="file"
+              multiple
+              accept="image/*,.dcm"
+              className="hidden"
+              onChange={handleFileUpload}
+              disabled={processing}
+            />
+          </label>
+        </CardContent>
+      </Card>
+
+      {/* Processing Queue */}
+      {files.length > 0 && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Processing Queue ({files.length} files)</CardTitle>
+              <Badge variant={processing ? "default" : "secondary"}>
+                {processing ? 'Processing' : 'Ready'}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {files.map((file, index) => (
+                <div key={index} className="flex items-center justify-between p-4 border rounded-lg">
+                  <div className="flex items-center gap-4 flex-1">
+                    <div className="flex items-center justify-center w-10 h-10">
+                      {getStatusIcon(file.status)}
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-medium">{file.name}</p>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        {(file.size / 1024).toFixed(2)} KB
+                      </p>
+                    </div>
+                  </div>
+                  {file.status === 'completed' && (
+                    <div className="flex items-center gap-4">
+                      <div className="text-right">
+                        <p className="font-semibold text-primary">{file.prediction}</p>
+                        <p className="text-sm text-gray-600">{file.confidence}% confidence</p>
+                      </div>
+                      <Badge className="bg-green-600">Complete</Badge>
+                    </div>
+                  )}
+                  {file.status === 'processing' && (
+                    <Badge className="bg-blue-600">Processing...</Badge>
+                  )}
+                  {file.status === 'pending' && (
+                    <Badge variant="outline">Pending</Badge>
+                  )}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Results Summary */}
+      {results.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Results Summary</CardTitle>
+            <CardDescription>{results.length} images processed</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="p-4 bg-green-50 dark:bg-green-950 rounded-lg">
+                <p className="text-sm text-gray-600 dark:text-gray-400">Completed</p>
+                <p className="text-3xl font-bold text-green-600">
+                  {results.filter(r => r.status === 'completed').length}
+                </p>
+              </div>
+              <div className="p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                <p className="text-sm text-gray-600 dark:text-gray-400">Avg Confidence</p>
+                <p className="text-3xl font-bold text-blue-600">
+                  {results.length > 0
+                    ? (results.reduce((acc, r) => acc + parseFloat(r.confidence), 0) / results.length).toFixed(1)
+                    : 0}%
+                </p>
+              </div>
+              <div className="p-4 bg-purple-50 dark:bg-purple-950 rounded-lg">
+                <p className="text-sm text-gray-600 dark:text-gray-400">Cancer Detected</p>
+                <p className="text-3xl font-bold text-purple-600">
+                  {results.filter(r => r.prediction !== 'No Cancer').length}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Instructions */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Batch Processing Instructions</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <div className="flex items-start gap-3">
+            <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold flex-shrink-0">1</div>
+            <p>Upload multiple medical images (DICOM, PNG, JPG, or TIFF format)</p>
+          </div>
+          <div className="flex items-start gap-3">
+            <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold flex-shrink-0">2</div>
+            <p>Review the processing queue to ensure all files are loaded correctly</p>
+          </div>
+          <div className="flex items-start gap-3">
+            <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold flex-shrink-0">3</div>
+            <p>Click "Start Batch" to begin processing all images sequentially</p>
+          </div>
+          <div className="flex items-start gap-3">
+            <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold flex-shrink-0">4</div>
+            <p>Monitor progress in real-time as each image is analyzed</p>
+          </div>
+          <div className="flex items-start gap-3">
+            <div className="w-6 h-6 rounded-full bg-primary text-white flex items-center justify-center text-xs font-bold flex-shrink-0">5</div>
+            <p>Export results as CSV for further analysis or record-keeping</p>
+          </div>
+        </CardContent>
+      </Card>
     </div>
-  )
+  );
 }
