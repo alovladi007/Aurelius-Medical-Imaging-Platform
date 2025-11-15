@@ -29,8 +29,7 @@ services:
     image: redis:7-alpine
     container_name: aurelius-redis
     command: redis-server --appendonly yes --requirepass redis123
-    ports:
-      - "6379:6379"
+    # Port 6379 exposed internally only (no external access needed)
     volumes:
       - redis_data:/data
     healthcheck:

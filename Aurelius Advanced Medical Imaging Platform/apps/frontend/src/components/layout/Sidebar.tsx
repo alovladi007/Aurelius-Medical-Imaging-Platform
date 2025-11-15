@@ -13,7 +13,7 @@ import {
   FileText,
   BarChart3,
   Microscope,
-  Flask,
+  Beaker,
   BookOpen,
   Bell,
   ChevronLeft,
@@ -57,7 +57,7 @@ const navigation = [
   {
     name: 'Research',
     href: '/research',
-    icon: Flask,
+    icon: Beaker,
     badge: null
   },
   {

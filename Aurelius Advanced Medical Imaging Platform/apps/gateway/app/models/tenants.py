@@ -44,7 +44,7 @@ class Tenant(Base):
 
     # Settings and metadata
     settings = Column(JSON, default={})
-    metadata = Column(JSON, default={})
+    tenant_metadata = Column(JSON, default={})
 
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
