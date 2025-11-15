@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Upload, Brain, Image, FileText, Download } from 'lucide-react';
+import { Upload, Brain, Image as ImageIcon, FileText, Download } from 'lucide-react';
 import Image from 'next/image';
 
 export default function InferencePage() {
