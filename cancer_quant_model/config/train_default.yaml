@@ -1,0 +1,191 @@
+# Default Training Configuration
+
+# Experiment tracking
+experiment:
+  name: "cancer_histopathology"
+  run_name: null  # Auto-generated if null
+  tags: ["cancer", "histopathology", "classification"]
+  notes: "Default training configuration for cancer histopathology classification"
+
+  # MLflow settings
+  mlflow:
+    tracking_uri: "experiments/mlruns"
+    experiment_name: "cancer_quant_model"
+    log_models: true
+    log_artifacts: true
+    log_system_metrics: true
+
+# Paths
+paths:
+  data_dir: "data"
+  output_dir: "experiments/outputs"
+  checkpoint_dir: "experiments/checkpoints"
+  log_dir: "experiments/logs"
+
+# Reproducibility
+seed: 42
+deterministic: true
+benchmark: false  # Set to true for faster training if input size is fixed
+
+# Hardware
+hardware:
+  device: "auto"  # auto, cpu, cuda, cuda:0, etc.
+  num_gpus: 1
+  num_workers: 4
+  pin_memory: true
+
+# Training
+training:
+  max_epochs: 50
+  log_every_n_steps: 10
+  val_check_interval: 1.0  # Validation every epoch
+  check_val_every_n_epoch: 1
+
+  # Gradient accumulation
+  accumulate_grad_batches: 1
+
+  # Gradient clipping
+  gradient_clip_val: 1.0
+  gradient_clip_algorithm: "norm"  # norm or value
+
+  # Mixed precision
+  precision: "16-mixed"  # 32, 16-mixed, bf16-mixed
+
+  # Checkpointing
+  save_top_k: 3  # Save top k checkpoints
+  save_last: true
+  monitor: "val_auroc"
+  mode: "max"  # max or min
+
+  # Early stopping
+  early_stopping:
+    enabled: true
+    monitor: "val_auroc"
+    patience: 10
+    mode: "max"
+    min_delta: 0.001
+
+  # Resume from checkpoint
+  resume_from_checkpoint: null  # Path to checkpoint or null
+
+# Validation
+validation:
+  enabled: true
+  sanity_steps: 2  # Sanity validation steps before training
+
+# Testing
+testing:
+  enabled: true
+  checkpoint: "best"  # best, last, or path to checkpoint
+
+# Logging
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  log_model_architecture: true
+  log_gradients: false
+  log_learning_rate: true
+
+  # TensorBoard
+  tensorboard:
+    enabled: true
+    log_graph: false
+
+  # Rich progress bar
+  progress_bar: true
+
+# Callbacks
+callbacks:
+  # Model checkpoint
+  model_checkpoint:
+    enabled: true
+    dirpath: "experiments/checkpoints"
+    filename: "{epoch:02d}-{val_auroc:.4f}"
+    monitor: "val_auroc"
+    mode: "max"
+    save_top_k: 3
+    save_last: true
+    save_weights_only: false
+    auto_insert_metric_name: false
+
+  # Learning rate monitor
+  lr_monitor:
+    enabled: true
+    logging_interval: "epoch"
+
+  # Early stopping
+  early_stopping:
+    enabled: true
+    monitor: "val_auroc"
+    patience: 10
+    mode: "max"
+    min_delta: 0.001
+    verbose: true
+
+  # Rich model summary
+  model_summary:
+    enabled: true
+    max_depth: 2
+
+# Quantitative feature extraction
+features:
+  # Extract features after training
+  extract_after_training: true
+
+  # Feature types
+  types:
+    - "deep_embeddings"  # From model backbone
+    - "color_statistics"  # Mean, std, histograms per channel
+    - "texture_glcm"  # GLCM texture features
+    - "morphological"  # Shape, area, perimeter features
+    - "frequency"  # FFT-based features
+
+  # Output format
+  output_format: "parquet"  # parquet, csv, hdf5
+  output_path: "experiments/features"
+
+# Explainability
+explainability:
+  # Generate explanations after training
+  enabled: true
+
+  # Methods
+  methods:
+    - "gradcam"
+    - "gradcam++"
+    - "scorecam"
+
+  # Target layers for Grad-CAM
+  target_layers: ["layer4"]  # Model-specific
+
+  # Number of samples to explain
+  num_samples: 100
+
+  # Output settings
+  save_overlays: true
+  output_path: "experiments/explanations"
+
+# Inference
+inference:
+  batch_size: 32
+  num_workers: 4
+  tta: false  # Test-time augmentation
+  tta_transforms: 5  # Number of TTA transforms
+
+  # Output probabilities
+  return_probs: true
+
+  # Threshold for binary classification
+  threshold: 0.5
+
+# Hyperparameter search (optional)
+hpo:
+  enabled: false
+  method: "random"  # random, grid, bayesian
+  n_trials: 20
+
+  # Search space
+  search_space:
+    optimizer.lr: [0.0001, 0.001]
+    optimizer.weight_decay: [0.00001, 0.001]
+    model.head.dropout: [0.1, 0.5]
+    dataloader.batch_size: [16, 32, 64]

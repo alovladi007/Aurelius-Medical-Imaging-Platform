@@ -1,0 +1,104 @@
+# ResNet Model Configuration
+
+model:
+  name: "resnet50"
+  architecture: "resnet"
+
+  # Model variant
+  variant: "resnet50"  # resnet18, resnet34, resnet50, resnet101, resnet152
+
+  # Pretrained weights
+  pretrained: true
+  pretrained_weights: "IMAGENET1K_V2"  # or path to custom weights
+
+  # Feature extraction vs fine-tuning
+  freeze_backbone: false
+  freeze_layers: 0  # Number of initial layers to freeze (0 = none)
+
+  # Classification head
+  head:
+    num_classes: 2
+    dropout: 0.5
+    activation: "relu"  # relu, gelu, silu
+
+    # Custom head architecture
+    use_custom_head: false
+    hidden_dims: [512, 256]  # Hidden layer dimensions if use_custom_head
+    batch_norm: true
+
+  # Global pooling
+  global_pool: "avg"  # avg, max, gem (generalized mean)
+
+  # Feature dimension (for embedding extraction)
+  feature_dim: 2048  # ResNet50 default
+
+  # Auxiliary outputs
+  extract_features: true  # Extract intermediate features
+  feature_layers: ["layer3", "layer4"]  # Layers to extract from
+
+  # Model modifications
+  modifications:
+    # Replace stride with dilation in last blocks (for dense prediction)
+    replace_stride_with_dilation: [false, false, false]
+
+    # Attention mechanisms
+    use_cbam: false  # Convolutional Block Attention Module
+    use_se: false  # Squeeze-and-Excitation
+    se_reduction: 16
+
+  # Input specifications
+  input:
+    size: [224, 224]
+    channels: 3
+
+  # Loss function
+  loss:
+    type: "cross_entropy"  # cross_entropy, focal, label_smoothing
+    label_smoothing: 0.0
+    focal_alpha: null  # [0.25, 0.75] for binary
+    focal_gamma: 2.0
+
+  # Optimizer
+  optimizer:
+    type: "adamw"  # sgd, adam, adamw
+    lr: 0.001
+    weight_decay: 0.0001
+    momentum: 0.9  # For SGD
+    betas: [0.9, 0.999]  # For Adam/AdamW
+
+  # Learning rate scheduler
+  scheduler:
+    type: "cosine"  # cosine, step, plateau, onecycle
+    warmup_epochs: 5
+    min_lr: 0.000001
+
+    # For step scheduler
+    step_size: 10
+    gamma: 0.1
+
+    # For plateau scheduler
+    patience: 5
+    factor: 0.5
+
+  # Training settings
+  training:
+    max_epochs: 50
+    early_stopping_patience: 10
+    gradient_clip_val: 1.0
+    accumulate_grad_batches: 1
+
+    # Mixed precision training
+    mixed_precision: true
+
+    # Gradient checkpointing (save memory)
+    gradient_checkpointing: false
+
+  # Metrics to track
+  metrics:
+    - "accuracy"
+    - "precision"
+    - "recall"
+    - "f1"
+    - "auroc"
+    - "auprc"
+    - "confusion_matrix"
