@@ -1,0 +1,162 @@
+# Default Configuration for Advanced Cancer AI System
+
+# Model Configuration
+model:
+  name: "multimodal_cancer_detector"
+  image_size: [224, 224]
+  num_classes: 4  # Lung, Breast, Prostate, Colorectal
+  num_stages: 5   # Cancer staging (0-4)
+
+  # Image encoder
+  vision_model: "vit_base_patch16_224"
+  efficientnet_model: "efficientnet_b4"
+  image_embedding_dim: 768
+
+  # Clinical encoder
+  clinical_input_dim: 10
+  clinical_hidden_dims: [256, 128]
+  clinical_embedding_dim: 128
+
+  # Genomic encoder
+  genomic_sequence_length: 1000
+  genomic_embedding_dim: 256
+
+  # Fusion
+  fusion_dim: 512
+  dropout: 0.3
+
+# Data Configuration
+data:
+  data_dir: "./data"
+  dataset_type: "custom"  # custom, tcga, lidc, cbis_ddsm
+  batch_size: 32
+  num_workers: 4
+  train_val_split: 0.8
+  multimodal: true
+
+  # Image preprocessing
+  normalize_method: "min_max"  # min_max, z_score, none
+  apply_clahe: true
+  remove_outliers: true
+  outlier_std: 3.0
+
+  # Data augmentation
+  augmentation:
+    enabled: true
+    rotation_range: 15.0
+    width_shift_range: 0.1
+    height_shift_range: 0.1
+    zoom_range: [0.9, 1.1]
+    horizontal_flip: true
+    vertical_flip: false
+    brightness_range: [0.85, 1.15]
+    contrast_range: [0.85, 1.15]
+    noise_std: 0.01
+    elastic_alpha: 0
+    elastic_sigma: 0
+    augmentation_probability: 0.5
+
+# Training Configuration
+training:
+  num_epochs: 100
+  learning_rate: 0.0001
+  weight_decay: 0.01
+  optimizer: "adamw"  # adamw, adam, sgd
+
+  # Learning rate scheduler
+  scheduler: "cosine"  # cosine, step, plateau
+  warmup_epochs: 5
+  min_lr: 0.000001
+
+  # Loss configuration
+  loss:
+    detection_weight: 1.0
+    staging_weight: 0.5
+    risk_weight: 0.3
+    use_focal_loss: true
+    focal_alpha: 0.25
+    focal_gamma: 2.0
+
+  # Regularization
+  gradient_clip: 1.0
+  label_smoothing: 0.1
+
+  # Early stopping
+  early_stopping:
+    enabled: true
+    patience: 15
+    min_delta: 0.001
+    monitor: "val_loss"
+
+  # Checkpointing
+  checkpoint:
+    save_best_only: true
+    save_frequency: 5
+    checkpoint_dir: "./checkpoints"
+    monitor: "val_auc"
+    mode: "max"
+
+# Evaluation Configuration
+evaluation:
+  metrics:
+    - "accuracy"
+    - "precision"
+    - "recall"
+    - "f1_score"
+    - "roc_auc"
+    - "confusion_matrix"
+
+  save_visualizations: true
+  visualization_dir: "./visualizations"
+
+# Deployment Configuration
+deployment:
+  model_format: "pytorch"  # pytorch, onnx
+  use_onnx: false
+  onnx_opset_version: 13
+
+  # Inference server
+  server:
+    host: "0.0.0.0"
+    port: 8000
+    workers: 4
+    reload: false
+
+  # Performance
+  batch_inference: true
+  max_batch_size: 32
+  use_gpu: true
+  fp16: false
+
+# Logging Configuration
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  log_dir: "./logs"
+  tensorboard: true
+  wandb: false
+  wandb_project: "cancer-detection"
+
+# Experiment Configuration
+experiment:
+  name: "cancer_detection_experiment"
+  description: "Multimodal cancer detection model"
+  tags: ["cancer", "multimodal", "medical-imaging"]
+  seed: 42
+  deterministic: true
+
+# Public Dataset Configurations
+public_datasets:
+  tcga:
+    name: "The Cancer Genome Atlas"
+    url: "https://portal.gdc.cancer.gov/"
+    download: false
+
+  lidc:
+    name: "Lung Image Database Consortium"
+    url: "https://wiki.cancerimagingarchive.net/display/Public/LIDC-IDRI"
+    download: false
+
+  cbis_ddsm:
+    name: "Curated Breast Imaging Subset of DDSM"
+    url: "https://wiki.cancerimagingarchive.net/display/Public/CBIS-DDSM"
+    download: false
