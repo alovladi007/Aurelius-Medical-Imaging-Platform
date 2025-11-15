@@ -1,9 +1,10 @@
 """
 Production-Ready Inference Server for Cancer Detection AI
 FastAPI-based REST API with ONNX optimization
+Integrated with Aurelius Platform Infrastructure
 """
 
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 import torch
 import onnxruntime as ort
@@ -11,14 +12,26 @@ import numpy as np
 from PIL import Image
 import io
 import logging
-from typing import Dict, List
+from typing import Dict, List, Optional
 import uvicorn
 from pydantic import BaseModel
 import json
+import os
+from datetime import datetime
 
 # Setup logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 logger = logging.getLogger(__name__)
+
+# Configuration from environment
+DATABASE_URL = os.getenv("DATABASE_URL", "")
+REDIS_URL = os.getenv("REDIS_URL", "")
+MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "")
+MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "")
+MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "")
+MINIO_BUCKET = os.getenv("MINIO_BUCKET", "cancer-ai-models")
+MODEL_PATH = os.getenv("MODEL_PATH", "models/cancer_detector.onnx")
+PORT = int(os.getenv("PORT", "8003"))
 
 app = FastAPI(
     title="Advanced Cancer Detection AI",
@@ -291,10 +304,15 @@ async def get_model_info():
     }
 
 if __name__ == "__main__":
+    logger.info(f"Starting Cancer AI Inference Server on port {PORT}")
+    logger.info(f"Model path: {MODEL_PATH}")
+    logger.info(f"MinIO endpoint: {MINIO_ENDPOINT}")
+    logger.info(f"Database URL configured: {bool(DATABASE_URL)}")
+
     uvicorn.run(
         "inference_server:app",
         host="0.0.0.0",
-        port=8000,
-        reload=True,
-        log_level="info"
+        port=PORT,
+        reload=False,
+        log_level=os.getenv("LOG_LEVEL", "info").lower()
     )

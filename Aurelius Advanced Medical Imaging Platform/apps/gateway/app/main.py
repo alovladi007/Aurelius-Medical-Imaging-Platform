@@ -7,7 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 from app.core.config import settings
-from app.api import health, studies, imaging, ml, worklists, tenants
+from app.api import health, studies, imaging, ml, worklists, tenants, cancer_ai
 
 
 # Prometheus metrics
@@ -137,6 +137,7 @@ app.include_router(health.router, tags=["Health"])
 app.include_router(studies.router, prefix="/studies", tags=["Studies"])
 app.include_router(imaging.router, prefix="/imaging", tags=["Imaging"])
 app.include_router(ml.router, prefix="/ml", tags=["Machine Learning"])
+app.include_router(cancer_ai.router, prefix="/cancer-ai", tags=["Cancer AI"])
 app.include_router(worklists.router, prefix="/worklists", tags=["Worklists"])
 app.include_router(tenants.router, prefix="/tenants", tags=["Tenants"])
 

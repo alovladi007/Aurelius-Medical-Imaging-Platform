@@ -44,7 +44,11 @@ class Settings(BaseSettings):
         env="IMAGING_SVC_URL"
     )
     ML_SVC_URL: str = Field(default="http://ml-svc:8002", env="ML_SVC_URL")
-    ETL_SVC_URL: str = Field(default="http://etl-svc:8003", env="ETL_SVC_URL")
+    CANCER_AI_SVC_URL: str = Field(
+        default="http://cancer-ai-svc:8003",
+        env="CANCER_AI_SVC_URL"
+    )
+    ETL_SVC_URL: str = Field(default="http://etl-svc:8004", env="ETL_SVC_URL")
     FHIR_SVC_URL: str = Field(
         default="http://fhir-server:8080/fhir",
         env="FHIR_SVC_URL"
