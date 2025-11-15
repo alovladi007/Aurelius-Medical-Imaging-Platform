@@ -1,161 +1,114 @@
-"""Authentication endpoints."""
-from fastapi import APIRouter, HTTPException, status, Depends
-from pydantic import BaseModel, EmailStr
-from app.core.auth import keycloak_openid, get_current_user, User
+"""Authentication and authorization utilities."""
+from fastapi import Depends, HTTPException, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from pydantic import BaseModel
+from keycloak import KeycloakOpenID
+import os
+from typing import List, Optional
 
-router = APIRouter()
+# Keycloak configuration
+KEYCLOAK_URL = os.getenv("KEYCLOAK_URL", "http://keycloak:8080")
+KEYCLOAK_REALM = os.getenv("KEYCLOAK_REALM", "aurelius")
+KEYCLOAK_CLIENT_ID = os.getenv("KEYCLOAK_CLIENT_ID", "gateway")
+KEYCLOAK_CLIENT_SECRET = os.getenv("KEYCLOAK_CLIENT_SECRET", "gateway-secret")
+
+# Initialize Keycloak OpenID client
+keycloak_openid = KeycloakOpenID(
+    server_url=KEYCLOAK_URL,
+    client_id=KEYCLOAK_CLIENT_ID,
+    realm_name=KEYCLOAK_REALM,
+    client_secret_key=KEYCLOAK_CLIENT_SECRET
+)
+
+security = HTTPBearer()
 
 
-class LoginRequest(BaseModel):
-    """Login request model."""
-    username: str
-    password: str
-
-
-class TokenResponse(BaseModel):
-    """Token response model."""
-    access_token: str
-    token_type: str = "bearer"
-    expires_in: int
-    refresh_token: str
-    refresh_expires_in: int
-
-
-class UserInfo(BaseModel):
-    """User information model."""
+class User(BaseModel):
+    """User model from JWT token."""
     sub: str
     username: str
     email: str
-    roles: list[str]
-    given_name: str = ""
-    family_name: str = ""
+    roles: List[str]
+    tenant_id: Optional[str] = None
+    extra: dict = {}
 
 
-@router.post("/login", response_model=TokenResponse)
-async def login(credentials: LoginRequest):
+async def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+) -> User:
     """
-    Authenticate user with Keycloak and return JWT token.
-    
+    Get current authenticated user from JWT token.
+
     Args:
-        credentials: User credentials
-        
+        credentials: HTTP Bearer token
+
     Returns:
-        TokenResponse: Access and refresh tokens
-        
+        User: Authenticated user information
+
     Raises:
-        HTTPException: If authentication fails
+        HTTPException: If token is invalid or expired
     """
     try:
-        # Get token from Keycloak
-        token = keycloak_openid.token(
-            credentials.username,
-            credentials.password
+        token = credentials.credentials
+
+        # Verify and decode token
+        userinfo = keycloak_openid.userinfo(token)
+
+        # Extract roles
+        token_info = keycloak_openid.introspect(token)
+        roles = token_info.get("resource_access", {}).get(KEYCLOAK_CLIENT_ID, {}).get("roles", [])
+
+        return User(
+            sub=userinfo.get("sub"),
+            username=userinfo.get("preferred_username"),
+            email=userinfo.get("email", ""),
+            roles=roles,
+            tenant_id=userinfo.get("tenant_id"),
+            extra=userinfo
         )
-        
-        return TokenResponse(
-            access_token=token["access_token"],
-            expires_in=token["expires_in"],
-            refresh_token=token["refresh_token"],
-            refresh_expires_in=token["refresh_expires_in"]
-        )
-        
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials"
+            detail="Invalid authentication credentials",
+            headers={"WWW-Authenticate": "Bearer"},
         )
 
 
-@router.post("/refresh", response_model=TokenResponse)
-async def refresh_token(refresh_token: str):
+def require_role(required_role: str):
     """
-    Refresh access token using refresh token.
-    
+    Dependency to require a specific role.
+
     Args:
-        refresh_token: Refresh token
-        
+        required_role: Role name required
+
     Returns:
-        TokenResponse: New access and refresh tokens
-        
-    Raises:
-        HTTPException: If refresh fails
+        Dependency function
     """
-    try:
-        token = keycloak_openid.refresh_token(refresh_token)
-        
-        return TokenResponse(
-            access_token=token["access_token"],
-            expires_in=token["expires_in"],
-            refresh_token=token["refresh_token"],
-            refresh_expires_in=token["refresh_expires_in"]
-        )
-        
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid refresh token"
-        )
+    async def role_checker(user: User = Depends(get_current_user)) -> User:
+        if required_role not in user.roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Role '{required_role}' required"
+            )
+        return user
+    return role_checker
 
 
-@router.post("/logout")
-async def logout(
-    refresh_token: str,
-    user: User = Depends(get_current_user)
-):
+def require_any_role(roles: List[str]):
     """
-    Logout user and invalidate tokens.
-    
+    Dependency to require any of the specified roles.
+
     Args:
-        refresh_token: Refresh token to invalidate
-        user: Current authenticated user
-        
+        roles: List of acceptable roles
+
     Returns:
-        Success message
+        Dependency function
     """
-    try:
-        keycloak_openid.logout(refresh_token)
-        return {"message": "Successfully logged out"}
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Logout failed"
-        )
-
-
-@router.get("/me", response_model=UserInfo)
-async def get_user_info(user: User = Depends(get_current_user)):
-    """
-    Get current user information.
-    
-    Args:
-        user: Current authenticated user
-        
-    Returns:
-        UserInfo: User information
-    """
-    return UserInfo(
-        sub=user.sub,
-        username=user.username,
-        email=user.email,
-        roles=user.roles,
-        given_name=user.extra.get("given_name", ""),
-        family_name=user.extra.get("family_name", "")
-    )
-
-
-@router.get("/verify")
-async def verify_token(user: User = Depends(get_current_user)):
-    """
-    Verify JWT token validity.
-    
-    Args:
-        user: Current authenticated user
-        
-    Returns:
-        Verification status
-    """
-    return {
-        "valid": True,
-        "username": user.username,
-        "roles": user.roles
-    }
+    async def role_checker(user: User = Depends(get_current_user)) -> User:
+        if not any(role in user.roles for role in roles):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"One of roles {roles} required"
+            )
+        return user
+    return role_checker

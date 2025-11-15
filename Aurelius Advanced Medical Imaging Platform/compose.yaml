@@ -131,10 +131,11 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8042/system"]
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8042/system"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 30s
     networks:
       - aurelius-net
 
@@ -145,7 +146,7 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:23.0
     container_name: aurelius-keycloak
-    command: start-dev --import-realm
+    command: start-dev
     environment:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://postgres:5432/keycloak
@@ -313,7 +314,7 @@ services:
       redis:
         condition: service_healthy
       keycloak:
-        condition: service_healthy
+        condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -345,7 +346,7 @@ services:
       redis:
         condition: service_healthy
       orthanc:
-        condition: service_healthy
+        condition: service_started
       minio:
         condition: service_healthy
     volumes:
